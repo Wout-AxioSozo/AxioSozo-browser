@@ -20,9 +20,9 @@
       "original_path": "apps/server/src/provider/acp/AcpStderr.ts",
       "original_file_sha256": "16aeceb7b17eaea0b716887e5e89e18dad3011717fe599b99b987df03372d2a0",
       "local_path": "packages/provider-host/vendor/t3/AcpStderr.ts",
-      "local_sha256": "16aeceb7b17eaea0b716887e5e89e18dad3011717fe599b99b987df03372d2a0",
-      "changes": "Entire dependency-free TypeScript module; unchanged.",
-      "tests": "tests/providers.test.mjs: bounded stderr and redaction regressions"
+      "local_sha256": "3337cb5b42b824d5253d6131885dbd7c9cf07b3ddbc39fb1812026d3466907d1",
+      "changes": "Entire dependency-free TypeScript module. Only change: the sign-in URL redaction (SIGN_IN_URL_PATTERN, [sign-in-url]) of upstream commit 9f01c5846cda2aab60bf7ca5b9ebbf331099ee62 (2026-10-20, packages/provider-acp/src/server/stderr.ts, post-change sha256 ec0e3084d845538e54b1e2b22e3a9dd26590b3de8c5ec8fb053919d7b7bb36ae), ported exactly.",
+      "tests": "tests/providers.test.mjs: bounded stderr and redaction regressions, including sign-in URLs"
     },
     {
       "original_path": "apps/server/src/provider/providerSnapshot.ts",

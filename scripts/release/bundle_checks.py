@@ -308,8 +308,9 @@ def updater(app):
             'flags': {key: value for key, value in (constants or {}).items() if key != 'MOZ_GOOGLE_SAFEBROWSING_API_KEY'}}
 
 
-def safe_browsing(app):
-    """Presence only; the key value itself is never printed or stored."""
+def safe_browsing(app, distribution=False):
+    """Presence only; the key value itself is never printed or stored. A build
+    without a key may be a local artifact, never a distributed (notarized) one."""
     constants, origin = app_constants(app)
     key = (constants or {}).get('MOZ_GOOGLE_SAFEBROWSING_API_KEY')
     if key is None:
@@ -318,10 +319,14 @@ def safe_browsing(app):
                 'state': 'UNKNOWN', 'source': origin}
     state = 'ABSENT' if key in ('', SAFE_BROWSING_ABSENT) else 'PRESENT'
     findings = []
-    if state == 'ABSENT':
+    if state == 'ABSENT' and distribution:
+        findings.append(finding('blocker', 'SAFE_BROWSING_KEY_ABSENT',
+                                'distribution build has no Safe Browsing key: it would ship WITHOUT '
+                                'phishing/malware protection; build with AxioSozo\'s own key'))
+    elif state == 'ABSENT':
         findings.append(finding('warning', 'SAFE_BROWSING_KEY_ABSENT',
                                 'build has no Safe Browsing key: ships WITHOUT phishing/malware protection '
-                                'and every artifact must say so'))
+                                'and every artifact must say so; a notarized build is refused'))
     return {'findings': findings, 'state': state, 'source': origin}
 
 

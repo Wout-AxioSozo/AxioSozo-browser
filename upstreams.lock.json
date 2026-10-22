@@ -52,7 +52,7 @@
     "reason": "No required embedding component identified; no Helium code copied."
   },
   "coordinator": {
-    "rust": "1.94.0",
+    "rust": "1.99.1",
     "dependency_lock": "Cargo.lock"
   },
   "provider_host": {

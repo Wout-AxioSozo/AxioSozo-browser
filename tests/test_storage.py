@@ -333,5 +333,54 @@ class AttachAndMount(unittest.TestCase):
                                  ['/usr/sbin/diskutil', 'mount', 'nobrowse', '/dev/disk9s3']])
 
 
+class SafeEnvironment(unittest.TestCase):
+    """Inherited settings may not change which code npm, mach or cargo run, or weaken TLS."""
+
+    KEPT = {'PATH': '/usr/bin:/bin', 'HTTPS_PROXY': 'http://proxy.invalid:3128', 'http_proxy': 'http://p.invalid',
+            'NO_PROXY': 'localhost', 'NODE_EXTRA_CA_CERTS': '/invented/ca.pem', 'SSL_CERT_FILE': '/invented/ca.pem',
+            'SSL_CERT_DIR': '/invented/certs', 'CARGO_HTTP_CAINFO': '/invented/ca.pem',
+            'npm_config_cafile': '/invented/ca.pem', 'npm_config_proxy': 'http://proxy.invalid:3128',
+            'npm_config_https_proxy': 'http://proxy.invalid:3128', 'CARGO_HOME': '/invented/cargo-home',
+            'CARGO_TARGET_DIR': '/invented/target', 'CARGO_BUILD_JOBS': '2', 'npm_config_cache': '/invented/npm',
+            'npm_config_userconfig': '/dev/null', 'npm_config_ignore_scripts': 'true'}
+    DROPPED = {'NODE_OPTIONS': '--require=/invented/hook.js', 'NODE_PATH': '/invented', 'NODE_REPL_EXTERNAL_MODULE': 'x',
+               'NODE_TLS_REJECT_UNAUTHORIZED': '1', 'npm_config_registry': 'https://invented.invalid',
+               'NPM_CONFIG_REGISTRY': 'https://invented.invalid', 'npm_config_@scope:registry': 'https://invented.invalid',
+               'npm_config_ignore_scripts': 'false', 'npm_config_script_shell': '/invented/sh',
+               'npm_config_node_options': '--require=/invented/hook.js', 'RUSTC': '/invented/rustc',
+               'RUSTC_WRAPPER': '/invented/hook', 'RUSTC_WORKSPACE_WRAPPER': '/invented/hook', 'RUSTFLAGS': '-Cx',
+               'CARGO_ENCODED_RUSTFLAGS': '-Cx', 'RUSTDOCFLAGS': '-Cx', 'RUSTUP_TOOLCHAIN': 'nightly',
+               'CARGO_BUILD_RUSTC_WRAPPER': '/invented/hook', 'CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS': '-Cx',
+               'CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER': '/invented/ld',
+               'CARGO_TARGET_AARCH64_APPLE_DARWIN_RUNNER': '/invented/run', 'CARGO_REGISTRIES_EVIL_INDEX': 'x',
+               'CARGO_SOURCE_CRATES_IO_REPLACE_WITH': 'evil', 'CARGO_HTTP_CHECK_REVOKE': 'false',
+               'CARGO_NET_GIT_FETCH_WITH_CLI': 'true', 'DYLD_INSERT_LIBRARIES': '/invented/hook.dylib',
+               'PYTHONPATH': '/invented', 'PYTHONSTARTUP': '/invented/hook.py', 'PYTHONHOME': '/invented',
+               'CARGO_HTTP_SSL_VERIFY': 'false', 'GIT_CONFIG_PARAMETERS': "'http.sslverify'='false'",
+               'GIT_CONFIG_COUNT': '1', 'GIT_CONFIG_KEY_0': 'http.sslVerify', 'GIT_CONFIG_VALUE_0': 'false',
+               'BASH_ENV': '/invented/hook.sh', 'ENV': '/invented/hook.sh'}
+
+    def test_hooks_are_dropped_and_proxy_and_ca_settings_kept(self):
+        self.assertEqual(storage.safe_environment(self.KEPT), self.KEPT)
+        for name, value in self.DROPPED.items():
+            self.assertEqual(storage.safe_environment({'PATH': '/usr/bin', name: value}), {'PATH': '/usr/bin'}, name)
+
+    def test_disabled_tls_verification_is_refused(self):
+        for name, value in (('NODE_TLS_REJECT_UNAUTHORIZED', '0'), ('npm_config_strict_ssl', 'false'),
+                            ('NPM_CONFIG_STRICT-SSL', '0')):
+            with self.assertRaisesRegex(RuntimeError, 'UNSAFE_BUILD_ENVIRONMENT: ' + name):
+                storage.safe_environment({name: value})
+
+    def test_zen_toolchain_environment_uses_the_same_filter(self):
+        import zen_toolchain
+        with patch.dict(os.environ, {'NODE_OPTIONS': '--require=/invented/hook.js', 'HTTPS_PROXY': 'http://p.invalid'}):
+            environment = zen_toolchain.environment()
+        self.assertNotIn('NODE_OPTIONS', environment)
+        self.assertEqual(environment['HTTPS_PROXY'], 'http://p.invalid')
+        with patch.dict(os.environ, {'NODE_TLS_REJECT_UNAUTHORIZED': '0'}), \
+             self.assertRaisesRegex(RuntimeError, 'UNSAFE_BUILD_ENVIRONMENT'):
+            zen_toolchain.environment()
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

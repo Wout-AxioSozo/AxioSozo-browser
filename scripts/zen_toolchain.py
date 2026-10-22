@@ -39,14 +39,12 @@ def pins():
 
 
 def environment():
-    env = os.environ.copy()
+    env = storage.safe_environment(os.environ)
     # A desktop terminal may carry another project's release/cross-compile flags.
     # Only this repository's maintained configuration selects native build mode.
     for key in ['ZEN_RELEASE', 'ZEN_CROSS_COMPILING', 'SCCACHE_GHA_ENABLED',
                 'SURFER_MOZCONFIG_ONLY', 'MOZCONFIG', 'MOZ_ARTIFACT_BUILDS',
-                'CC', 'CXX', 'CFLAGS', 'CXXFLAGS', 'CPPFLAGS', 'LDFLAGS',
-                'RUSTC', 'RUSTC_WRAPPER', 'RUSTFLAGS',
-                'CARGO_ENCODED_RUSTFLAGS', 'RUSTUP_TOOLCHAIN', 'BASH_ENV', 'ENV',
+                'CC', 'CXX', 'CFLAGS', 'CXXFLAGS', 'CPPFLAGS', 'LDFLAGS', 'BASH_ENV', 'ENV',
                 'CDPATH', 'MAKEFLAGS', 'MFLAGS', 'DESTDIR', 'MOZ_FETCHES_DIR',
                 'MOZBUILD_STATE_PATH', 'MACHRC', 'TASK_ID', 'MOZ_SCM_LEVEL',
                 'MACH_USE_SYSTEM_PYTHON', 'MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE']:

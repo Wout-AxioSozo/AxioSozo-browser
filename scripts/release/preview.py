@@ -248,7 +248,7 @@ def planned_commands(ctx):
     return commands
 
 
-def preflight(report, app, cef, repo):
+def preflight(report, app, cef, repo, distribution=False):
     brand = bundle_checks.branding(app, repo=repo)
     report.absorb(brand['findings'])
     report.step('branding', 'BLOCKED' if any(f['level'] == 'blocker' for f in brand['findings']) else 'PASS',
@@ -267,7 +267,8 @@ def preflight(report, app, cef, repo):
     report.absorb(updater['findings'])
     report.step('updater', updater['state'], channel=updater['channel'], source=updater['source'],
                 flags=updater['flags'], notice='manual updates; own MAR keys and update host not built')
-    safe = bundle_checks.safe_browsing(app)
+    # Only a notarized build is distributable; it must ship Safe Browsing.
+    safe = bundle_checks.safe_browsing(app, distribution=distribution)
     report.absorb(safe['findings'])
     report.step('safe_browsing', safe['state'], source=safe['source'],
                 label=artifacts.safe_browsing_sentence(safe['state']))
@@ -452,7 +453,7 @@ def run(args, repo=ROOT):
     if app is None:
         return finish(report, args)
     cef = cef_source(args)
-    brand, safe, chromium = preflight(report, app, cef, repo)
+    brand, safe, chromium = preflight(report, app, cef, repo, distribution=args.notarize)
     version = re.sub(r'[^A-Za-z0-9._-]', '_', brand['version'] or 'unknown')
     commit = source['commit'] or 'unknown'
     stage_root = Path(args.stage_root) if args.stage_root else storage.BUILD_ROOT / 'release'

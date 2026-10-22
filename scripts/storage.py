@@ -181,7 +181,7 @@ def run_helper(helper):
     gets SIGTERM, which the helpers turn into a clean exit that stops their own
     hdiutil/diskutil commands; SIGKILL only if that does not end it. Its output
     goes to stderr so that `setup` prints only the JSON report on stdout."""
-    process = subprocess.Popen([str(helper)], stdout=2)
+    process = subprocess.Popen([str(helper)], stdout=2, env=safe_environment(os.environ))
     try:
         return process.wait(timeout=HELPER_TIMEOUT)
     except subprocess.TimeoutExpired:
@@ -302,8 +302,45 @@ def ensure():
     return report()
 
 
+# Inherited settings that silently change which code a build runs or weaken TLS.
+# CA bundles and proxies (*_PROXY, NODE_EXTRA_CA_CERTS, SSL_CERT_FILE/DIR,
+# CARGO_HTTP_CAINFO, npm_config_cafile/proxy/https_proxy) still pass through.
+UNSAFE_VARIABLES = {
+    'NODE_OPTIONS', 'NODE_PATH', 'NODE_REPL_EXTERNAL_MODULE', 'NODE_TLS_REJECT_UNAUTHORIZED',
+    'RUSTC', 'RUSTC_WRAPPER', 'RUSTC_WORKSPACE_WRAPPER', 'RUSTDOC', 'RUSTFLAGS', 'RUSTDOCFLAGS',
+    'CARGO_ENCODED_RUSTFLAGS', 'CARGO_ENCODED_RUSTDOCFLAGS', 'RUSTUP_TOOLCHAIN',
+    'CARGO_HTTP_CHECK_REVOKE', 'CARGO_HTTP_SSL_VERSION', 'CARGO_NET_GIT_FETCH_WITH_CLI',
+    'CARGO_HTTP_SSL_VERIFY', 'GIT_SSL_NO_VERIFY', 'GIT_CONFIG_PARAMETERS', 'GIT_CONFIG_COUNT',
+    'BASH_ENV', 'ENV', 'PYTHONPATH', 'PYTHONSTARTUP', 'PYTHONHOME', 'PYTHONUSERBASE'}
+UNSAFE_PREFIXES = ('DYLD_', 'CARGO_BUILD_RUST', 'CARGO_REGISTRIES_', 'CARGO_REGISTRY_', 'CARGO_SOURCE_',
+                   'GIT_CONFIG_KEY_', 'GIT_CONFIG_VALUE_')
+# npm reads npm_config_* case-insensitively and treats '-' and '_' alike.
+UNSAFE_NPM_SETTINGS = {'registry', 'strict_ssl', 'ignore_scripts', 'script_shell', 'shell',
+                       'node_options', 'node_gyp', 'git'}
+
+
+def safe_environment(env):
+    """A copy of env without UNSAFE_* settings. Disabled TLS verification is
+    refused instead of dropped, so the operator sees it."""
+    result = {}
+    for key, value in env.items():
+        npm = key[11:].lower().replace('-', '_') if key.lower().startswith('npm_config_') else ''
+        if ((key == 'NODE_TLS_REJECT_UNAUTHORIZED' and value == '0')
+                or (npm == 'strict_ssl' and value.lower() not in ('', 'true', '1'))):
+            raise RuntimeError('UNSAFE_BUILD_ENVIRONMENT: ' + key + '=' + value
+                               + ' disables TLS verification; unset it')
+        if (key in UNSAFE_VARIABLES or key.startswith(UNSAFE_PREFIXES)
+                or (key.startswith(('CARGO_TARGET_', 'CARGO_HOST_'))
+                    and key.endswith(('_RUSTFLAGS', '_LINKER', '_RUNNER')))
+                or npm.endswith(':registry')
+                or (npm in UNSAFE_NPM_SETTINGS and not (npm == 'ignore_scripts' and value == 'true'))):
+            continue
+        result[key] = value
+    return result
+
+
 def environment(temporary):
-    env = os.environ.copy()
+    env = safe_environment(os.environ)
     env.update({'AXIOSOZO_BUILD_ROOT': str(BUILD_ROOT), 'TMPDIR': str(temporary) + '/',
                 'CARGO_TARGET_DIR': str(BUILD_ROOT / 'cargo-target'),
                 'CLANG_MODULE_CACHE_PATH': str(BUILD_ROOT / 'caches/clang'),

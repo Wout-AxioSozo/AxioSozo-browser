@@ -21,7 +21,7 @@ invoked with both `--notarize` and `--authorized`.
 | 3 | Preflight: branding | — | `CFBundleIdentifier` is `nl.axiosozo.*` and has no Mozilla/Firefox/Zen/Chrome/Google token. User-visible `Info.plist` strings, `InfoPlist.strings`, `brand.ftl` and `brand.properties` values have no Firefox, Mozilla, Zen, Chrome, Chromium, Google, Nightly or Twilight mark (comments ignored). `application.ini` profile root must be AxioSozo-owned. The icon must match `apps/browser/branding/firefox.icns`. Other en-US UI strings that mention a mark are reported for review only. |
 | 4 | Preflight: packaging | — | No symlink leaves the bundle; no objdir markers (`MozillaDeveloperObjPath`) and no test harness binaries (`gtest`, `xpcshell`, …). Only `mach package` output can pass. |
 | 5 | Preflight: updater | — | `AppConstants.MOZ_UPDATER` is false and no `updater.app` / updater launch service exists. Unknown fails closed. |
-| 6 | Preflight: Safe Browsing | — | `MOZ_GOOGLE_SAFEBROWSING_API_KEY` present or `no-google-safebrowsing-api-key`. The value is never printed. When absent, every artifact says the build ships **without** phishing/malware protection. |
+| 6 | Preflight: Safe Browsing | — | `MOZ_GOOGLE_SAFEBROWSING_API_KEY` present or `no-google-safebrowsing-api-key`. The value is never printed. When absent, a `--notarize` (distribution) run is blocked (`SAFE_BROWSING_KEY_ABSENT`); a local run only warns, and every artifact says the build ships **without** phishing/malware protection. |
 | 7 | Preflight: Chromium | — | `LSEnvironment` must not set `AXIOSOZO_ENGINE_SWITCHING=1`. The chrome env gate must exist in source. An embedded CEF host is labelled experimental. |
 | 8 | Preflight: notices | — | Gecko `about:license` is present; if CEF is embedded, its `LICENSE.txt` and `CREDITS.html` are present; repository `LICENSE` and `THIRD_PARTY_NOTICES.md` exist. |
 | 9 | Stage | — | `ditto` copy to `/Volumes/AxioSozoBuild/release/preview-<version>-<commit12>/dmg-root/`. The stage must be on APFS/HFS+ (exFAT AppleDouble files break codesign). The CEF host (default `/Volumes/AxioSozoBuild/cef/AxioCEFProbe.app`, `--cef-app none` to omit) is embedded at `Contents/Helpers/AxioCEFProbe.app`. `xattr -cr`. An existing stage is never deleted or reused. |
@@ -147,7 +147,10 @@ The overlay deliberately builds without personal Zen key files
 (`patches/zen/overlay.json`, `configs/common/mozconfig`). A distribution build needs
 AxioSozo's own Google Safe Browsing key supplied through a build-time key file
 outside the repository. Until then, the pipeline detects
-`no-google-safebrowsing-api-key` and every artifact states that the Preview ships
+`no-google-safebrowsing-api-key` and refuses any `--notarize` run with the
+`SAFE_BROWSING_KEY_ABSENT` preflight blocker (exit 4), so no build without
+phishing/malware protection can be distributed. Local runs (dry-run, unsigned
+stage, locally signed DMG) only warn, and every such artifact states that it ships
 **without phishing/malware protection**. Key procurement and storage are Wout's
 decision; agents never read key files.
 
@@ -182,5 +185,5 @@ this pipeline.
 | `BLOCKED_SIGNING_IDENTITY`: no Apple Developer account (decision 3) | Wout |
 | `OBJDIR_DEVELOPMENT_BUNDLE`, `SYMLINKS_LEAVE_BUNDLE` (7774), `TEST_ARTIFACTS_PRESENT`: only the objdir `AxioSozo Dev.app` exists; no `mach package` output | Zen workstream (`scripts/zen.py` package step) |
 | `PROFILE_ROOT_NOT_ISOLATED`: `application.ini` `Profile=zen`, from Zen's `src/toolkit/moz-configure.patch` default `MOZ_APP_PROFILE="zen"`. An installed build would use `~/Library/Application Support/zen`, the stock Zen profile root. | Zen workstream (mozconfig `MOZ_APP_PROFILE`/`MOZ_APP_VENDOR`) |
-| Warnings: `.dev` bundle ID and "AxioSozo Dev" name; `Vendor=Mozilla`; `SourceRepository` zen-browser; crash reports to Mozilla; Zen team requirement in `SMPrivilegedExecutables`; Safe Browsing key absent | Zen workstream / Wout |
+| Warnings: `.dev` bundle ID and "AxioSozo Dev" name; `Vendor=Mozilla`; `SourceRepository` zen-browser; crash reports to Mozilla; Zen team requirement in `SMPrivilegedExecutables`; Safe Browsing key absent (a blocker for any `--notarize` run) | Zen workstream / Wout |
 | CEF under hardened runtime unproven; the adapter only launches CEF from a `./dev` session, so embedded CEF is unusable in a Finder launch | CEF workstream |

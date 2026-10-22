@@ -3,7 +3,7 @@
 <!--
   MPL-2.0. CEF "Helper (Renderer)" and "Helper (GPU)" apps.
 
-  UNVERIFIED ASSUMPTION. The pinned CEF 154.0.23 minimal archive contains no
+  UNVERIFIED ASSUMPTION. The pinned CEF 156.0.7 minimal archive contains no
   entitlements file, so nothing here is mirrored from pinned source. V8 in the
   renderer, like Gecko's plugin-container, needs MAP_JIT under the hardened runtime.
   The CEF workstream must prove E0 with this exact hardened-runtime signature before

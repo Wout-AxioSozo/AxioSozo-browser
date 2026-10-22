@@ -3,7 +3,8 @@
 //
 // Input: CEF's OnAccessibilityTreeChange / OnAccessibilityLocationChange payloads,
 // in the shape produced by libcef/browser/osr/osr_accessibility_util.cc (CEF
-// 062ebe433bf6, the pinned 154.0.23 runtime), converted from cef_value_t into
+// 062ebe433bf6 / 154.0.23, unchanged in the pinned 47dbc1df023e / 156.0.7
+// runtime), converted from cef_value_t into
 // the bounded Value below by a11y.inc.
 //
 // Output: complete cef-v1 JSON event lines `ax_tree_update` and `ax_location`

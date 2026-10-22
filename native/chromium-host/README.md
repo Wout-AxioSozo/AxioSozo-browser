@@ -15,13 +15,13 @@ python3 native/chromium-host/stream_security_test.py
 python3 native/chromium-host/web_stream_test.py
 ```
 
-The root `./dev engine-probe` owns combined acceptance. Native compiler and signing commands have a ten-minute limit and report `BLOCKED_ENV` on timeout; they clean only their owned process groups. Every new run archives previous real logs and frames under `docs/evidence/cef-run-*`, and clears current images so a failed run cannot display stale evidence. The component's first setup downloads a pinned official macOS arm64 minimal archive, verifies its SHA256, and compiles our Objective-C++ C API host with Xcode. It uses the unchanged CEF scoped sandbox helper source from that archive. This avoids installing CMake or compiling the entire C++ wrapper. Build artifacts and profiles live in `$AXIOSOZO_BUILD_ROOT/cef`; the build root must be the mounted project APFS volume, default `/Volumes/AxioSozoBuild`. Compiler temporary files and module caches are overridden after `dev-external` to remain on that fresh volume. The verified legacy archive is copied and rechecked; older outputs stay in place. The host bundle ID is `dev.axiosozo.cef-probe`; it never sets the default browser or opens a personal profile.
+The root `./dev engine-probe` owns combined acceptance. Native compiler and signing commands have a ten-minute limit and report `BLOCKED_ENV` on timeout; they clean only their owned process groups. Every new run archives previous real logs and frames under `docs/evidence/cef-run-*`, and clears current images so a failed run cannot display stale evidence. The component's first setup downloads a pinned official macOS arm64 minimal archive, verifies its SHA256, and compiles our Objective-C++ C API host with Xcode. It uses the unchanged CEF scoped sandbox helper source from that archive. This avoids installing CMake or compiling the entire C++ wrapper. Build artifacts and profiles live in `$AXIOSOZO_BUILD_ROOT/cef`; the build root must be the mounted project APFS volume, default `/Volumes/AxioSozoBuild`. Compiler temporary files and module caches are overridden after `dev-external` to remain on that fresh volume. The archive is kept under its versioned upstream name, so a previous pin's archive and extraction stay in place and are never reused; each rebuild re-clones the framework from the current pin. The host bundle ID is `dev.axiosozo.cef-probe`; it never sets the default browser or opens a personal profile.
 
 The process uses real CEF off-screen BGRA frames at 2× device scale and native input calls. It renders `tests/fixtures/engine.html`, types synthetic text, resizes, scrolls, navigates to another local GET URL and goes back, then closes through CEF before shutdown. PNGs are encoded directly from CEF `on_paint` bytes; they are actual render output, not screenshots of another browser. The process has no visible product window. This rendering test does not prove native IME, selection, clipboard, accessibility or UI integration in Zen.
 
 The helper initializes CEF's current scoped macOS sandbox before loading the main framework. The main host configures `no_sandbox=0`, no debugging port, and no arbitrary command-line switches. An exact fixture URL allowlist is applied at launch and for stream sessions that omit `browsing_mode`. There is no content-to-privileged bridge. General HTTP(S) mode is explicit and experimental, with the unsupported capabilities listed below.
 
-`setup` reviews/uses no upstream lifecycle hooks, creates local code signatures only (ad hoc, or your own local identity, see "Stable local signing identity"), and preserves the required framework resources and license files. The diagnostic bundle includes English UI resources only, as permitted by the pinned distribution README; the full verified archive retains every upstream locale. ICU remains present for Unicode page content. Binary and source pins are in the root lockfile and `docs/evidence/cef-upstream-manifest.json`. A changed local host or toolchain invalidates the build fingerprint, requiring setup. No native hot reload is claimed.
+`setup` reviews/uses no upstream lifecycle hooks, creates local code signatures only (ad hoc, or your own local identity, see "Stable local signing identity"), and preserves the required framework resources and license files. The diagnostic bundle includes English UI resources only, as permitted by the pinned distribution README; the full verified archive retains every upstream locale. ICU remains present for Unicode page content. Binary and source pins are in the root lockfile (`docs/evidence/cef-upstream-manifest.json` keeps the original 154.0.23 index entry as history). A changed local host or toolchain invalidates the build fingerprint, requiring setup. No native hot reload is claimed.
 
 A probe invocation owns its one child process group and unique profile. Timeout/interruption terminates only that group; no `pkill` or global client discovery is used. Successful native shutdown is recorded as `closed` before the result. Profile directories are retained externally for repeatable diagnostics and can be explicitly removed after their process has exited; they contain only synthetic fixture activity.
 
@@ -140,8 +140,9 @@ may ask once whether `codesign` may use the certificate's private key; that is y
 **First run.** The Safe Storage item is created and read by this host for its synthetic,
 in-memory dev profile, not by your personal Chrome. If the dialog names `AxioCEFProbe`
 (the host), choose **Always Allow**; later rebuilds signed with the same certificate will
-not ask again. Caveat: CEF 154 has no per-app Keychain naming (commit fa874ac is newer),
-so the item is still the generic **"Chromium Safe Storage"**. A personal Chromium build
+not ask again. Caveat: the pinned CEF 156 can name the Keychain item per app, but the
+host does not set those names yet (see "Explicit web sessions"), so the item is still
+the generic **"Chromium Safe Storage"**. A personal Chromium build
 using that same item name could be the one the dialog refers to. If the dialog names any
 other app or your Chrome, or you are unsure, choose **Deny**; the host tolerates a denial
 apart from the teardown stall described above. Nothing in this repo answers the dialog.
@@ -200,11 +201,16 @@ this boundary. See `docs/evidence/cef-web-stream-cwqgbeis/result.json` and the o
 process sample `docs/evidence/cef-owned-stall-sample.txt`. Those runs are failures,
 not passing web or E1/E2 evidence. Do not approve a Keychain prompt automatically.
 
-Official CEF master added per-app Keychain service/account names in
-[commit fa874ac](https://github.com/chromiumembedded/cef/commit/fa874acb9dd4a0ebf607245543b2f20d27d04916),
-behind `CEF_NEXT`. Neither the pinned154.0.23 nor official newest154.0.28 release
-source exposes those fields. Production isolation needs a runtime exposing that
-supported API and stable signing. No mock Keychain, basic password store, TLS
+Official CEF added per-app Keychain service/account names in
+[commit fa874ac](https://github.com/chromiumembedded/cef/commit/fa874acb9dd4a0ebf607245543b2f20d27d04916).
+The pinned 156.0.7 exposes them as `cef_settings_t.keychain_service_name` and
+`keychain_account_name` (API version 15600; empty keeps Chromium's default item).
+The host deliberately leaves them empty for now: a different name creates or reads a
+different Keychain item, so data encrypted under the current item (the persistent web
+profile) would become unreadable. A product-specific name would stop the host from
+ever touching a personal Chromium's "Chromium Safe Storage" item, but with ad hoc
+signing each rebuild would still be a new client of its own item and still prompt;
+production isolation needs both a planned name migration and stable signing. No mock Keychain, basic password store, TLS
 bypass, personal-profile access, or system-Keychain mutation is implemented here.
 An explicitly authorized user may respond to macOS themselves during an isolated
 fixture run. `web_stream_test.py --interaction-timeout 60` waits longer for that

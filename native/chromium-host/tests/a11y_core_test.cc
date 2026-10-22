@@ -5,7 +5,8 @@
 //
 // Build output belongs on the project build volume (AGENTS.md); run it through
 // dev-external + scripts/storage.py exec like every other native command.
-// Fixtures follow the CEF 062ebe4 OSR serializer (osr_accessibility_util.cc):
+// Fixtures follow the CEF 062ebe4 OSR serializer (osr_accessibility_util.cc,
+// unchanged in the pinned 47dbc1d):
 // {ax_tree_id, updates:[{has_tree_data, tree_data, node_id_to_clear, root_id,
 // nodes:[{id, role, state, location, child_ids, attributes, ...}]}], events}.
 #include "a11y_core.hpp"

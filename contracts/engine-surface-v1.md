@@ -176,7 +176,7 @@ discards (then releases) frames of stale generations, exactly like AXCF frames.
   targets, 8 dirty rects). 4096 px is a quarter of the 16384 px Metal 2D-texture
   limit on Apple silicon. The engine pipe's 32 MiB frame cap does not apply here.
 
-## CEF 154 implementation notes (pinned 154.0.23 / 062ebe4)
+## CEF implementation notes (researched on 154.0.23 / 062ebe4; pin now 156.0.7 / 47dbc1d)
 
 Research behind the host implementation; paths relative to the CEF/Chromium trees.
 

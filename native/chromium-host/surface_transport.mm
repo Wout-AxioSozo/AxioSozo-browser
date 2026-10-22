@@ -1,6 +1,6 @@
 // Mach IOSurface frame transport, host side. See contracts/engine-surface-v1.md.
 //
-// CEF 154 delivers PET_VIEW/PET_POPUP frames in IOSurfaces owned by viz's
+// CEF 156 delivers PET_VIEW/PET_POPUP frames in IOSurfaces owned by viz's
 // FrameSinkVideoCapturer pool (11 buffers). The buffer returns to that pool when
 // OnAcceleratedPaint returns, so it is never forwarded: each frame is copied on
 // the GPU into a host-owned ring of IOSurfaces per target, and only ring

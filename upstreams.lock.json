@@ -1,23 +1,24 @@
 {
   "schema_version": 1,
-  "recorded_at": "2026-09-22",
+  "recorded_at": "2026-10-22",
   "platform": "macOS-arm64",
   "status": "PARTIAL_ENGINE_BLOCKED",
   "zen": {
     "repository": "https://github.com/zen-browser/desktop.git",
-    "revision": "f0f21cdade1fd519a660d756942f7032a8c7a518",
+    "revision": "541ee55196395ee8082862b83c84c90ab41d9f6d",
+    "tag": "1.23.4b",
     "source_dir": "upstream/zen",
     "license": "MPL-2.0",
     "patches": "patches/zen"
   },
   "firefox": {
     "repository": "https://hg.mozilla.org/releases/mozilla-release",
-    "revision": "a80bd15ddee3b4bf3679aeba340e9d2db933c467",
-    "version": "156.0",
+    "revision": "48a735cc74a7e6d730f9bf59c3de58f750287a23",
+    "version": "158.0.1",
     "candidate_build": 1,
-    "source_url": "https://archive.mozilla.org/pub/firefox/candidates/156.0-candidates/build1/source/firefox-156.0.source.tar.xz",
-    "sha512": "0463304a0898670d248114f66f7c235166ae2397c3989a7c878c96f0c589fbbba1f1c87432daa22633b9fadd94394adf1dc37f0e67d22b066c75efe5eead75ce",
-    "archive_downloaded": false
+    "source_url": "https://archive.mozilla.org/pub/firefox/candidates/158.0.1-candidates/build1/source/firefox-158.0.1.source.tar.xz",
+    "sha512": "a5cc16a63f4b43f01bc26e2feb12e54e5281aebdc81775cbc0e8d77dd5ceefa5055e78d2a6ad54895c397d414d1fac13d49ddf28099f534269a6a166dedafa5e",
+    "archive_downloaded": true
   },
   "surfer": {
     "version": "1.14.9",
@@ -56,7 +57,9 @@
     "dependency_lock": "Cargo.lock"
   },
   "provider_host": {
-    "node": "24.14.0",
+    "node": "22.23.4",
+    "node_runtime": "zen_toolchain.node, launched by scripts/dev.py provider_node()",
+    "tested_node": ["22.23.4", "24.22.1"],
     "dependencies": "No runtime npm dependencies; see package provenance",
     "codex_protocol_version": "0.155.1",
     "codex_schema_sha256": "f1f3591667d8dcf77352c04be5d0667153e492d1a378e4205d69e9af6f31c0c3"
@@ -68,11 +71,11 @@
   },
   "zen_toolchain": {
     "node": {
-      "version": "22.22.3",
-      "filename": "node-v22.22.3-darwin-arm64.tar.xz",
-      "url": "https://nodejs.org/dist/v22.22.3/node-v22.22.3-darwin-arm64.tar.xz",
-      "sha256": "753c1629e168cc788ccc46ab61e0b35549fce08c07f82fcd3bb0d41f7fb01e7b",
-      "checksum_source": "https://nodejs.org/dist/v22.22.3/SHASUMS256.txt"
+      "version": "22.23.4",
+      "filename": "node-v22.23.4-darwin-arm64.tar.xz",
+      "url": "https://nodejs.org/dist/v22.23.4/node-v22.23.4-darwin-arm64.tar.xz",
+      "sha256": "037650d0839f457747396f052073fb48333d31bf5abd3c98b74da20d89ebb1ad",
+      "checksum_source": "https://nodejs.org/dist/v22.23.4/SHASUMS256.txt"
     },
     "rust": {
       "version": "1.95.0",
@@ -83,13 +86,13 @@
       "audited_installer_sha256": "3d5a09d2e414c74e2bb6df12b233c4f8ccc8af4e3dfc9fe38401947a1a1acadd"
     },
     "python": {
-      "version": "3.11.16",
+      "version": "3.11.17",
       "distribution": "astral-sh/python-build-standalone",
-      "release": "20260901",
-      "filename": "cpython-3.11.16+20260901-aarch64-apple-darwin-install_only.tar.gz",
-      "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260901/cpython-3.11.16%2B20260901-aarch64-apple-darwin-install_only.tar.gz",
-      "sha256": "50424fa409e8ae84b82a3052522f64695b47dff2158b70bb7358e0ebd6c085c9",
-      "checksum_source": "https://api.github.com/repos/astral-sh/python-build-standalone/releases/tags/20260901"
+      "release": "20261021",
+      "filename": "cpython-3.11.17+20261021-aarch64-apple-darwin-install_only.tar.gz",
+      "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261021/cpython-3.11.17%2B20261021-aarch64-apple-darwin-install_only.tar.gz",
+      "sha256": "b5199d66966141fb6d5447512d2b2fe0398d417da37b1949f58db3792d314eac",
+      "checksum_source": "https://api.github.com/repos/astral-sh/python-build-standalone/releases/tags/20261021"
     },
     "tar": {
       "version": "1.35",

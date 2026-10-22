@@ -1,6 +1,6 @@
 {
   "path": "services/settings/dumps/main/search-config-v2.json",
-  "mozilla_sha256": "20b2588cb99492f8eb49f009452205761ade0cbe77c07efb543dd8a12024f2e1",
-  "zen_filtered_sha256": "38616d9b61f39ae464b317a5b40fbafe6288a5cc7aeb5f2d0c93a7e3fd6ab155",
+  "mozilla_sha256": "8e711f2f5230d3ba2491976d577f80480269d89741ffa6b10aae5e781a6baebc",
+  "zen_filtered_sha256": "1d67b2eed083b8235ac0c7f4146ea1a0d6f020b75cfb52993ab184f6f8bd82a7",
   "reason": "Zen import:dumps filters Firefox's signed fallback data without re-signing it; retain the exact pinned Mozilla bytes and verification."
 }

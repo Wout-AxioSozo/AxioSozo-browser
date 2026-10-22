@@ -13,6 +13,7 @@ const POPUPS = "src/browser/base/content/zen-panels/popups.inc";
 const ICONS = "src/browser/base/content/zen-sidebar-icons.inc.xhtml";
 const SPACE = "src/zen/spaces/ZenSpace.mjs";
 const UI = "src/zen/common/modules/ZenUIManager.mjs";
+const ROUTING = "src/zen/space-routing/ZenSpaceRoutingManager.sys.mjs";
 
 export const ZEN_ADAPTER_CONTRACT = Object.freeze([
   { name: "window.gZenWorkspaces", source: SPACES, needle: "window.gZenWorkspaces = new nsZenWorkspaces()" },
@@ -37,7 +38,7 @@ export const ZEN_ADAPTER_CONTRACT = Object.freeze([
   { name: "popup #zenWorkspaceMoreActions", source: POPUPS, needle: "<menupopup id=\"zenWorkspaceMoreActions\">" },
   { name: "menu #context_zenWorkspacesOpenInContainerTab", source: POPUPS, needle: "<menu id=\"context_zenWorkspacesOpenInContainerTab\"" },
   { name: "window.gZenStartup", source: "src/zen/common/modules/ZenStartup.mjs", needle: "window.gZenStartup = new ZenStartup();" },
-  { name: "gZenStartup.promiseInitialized", source: "src/zen/common/modules/ZenStartup.mjs", needle: "promiseInitialized = new Promise(" },
+  { name: "gZenStartup.promiseInitialized", source: "src/zen/common/modules/ZenStartup.mjs", needle: "get promiseInitialized() {\n    return this.#initialized.promise;" },
   // Sidebar touchpoints used by SpaceSwitcher.sys.mjs and space-switcher.css.
   { name: "gZenWorkspaces.shouldWrapAroundNavigation", source: SPACES, needle: "\"shouldWrapAroundNavigation\",\n      \"zen.workspaces.wrap-around-navigation\"" },
   { name: "gZenWorkspaces.naturalScroll", source: SPACES, needle: "\"naturalScroll\",\n      \"zen.workspaces.natural-scroll\"" },
@@ -49,16 +50,20 @@ export const ZEN_ADAPTER_CONTRACT = Object.freeze([
   { name: "space header .zen-current-workspace-indicator", source: SPACE, needle: "<vbox class=\"zen-workspace-tabs-section zen-current-workspace-indicator " },
   { name: "space attribute collapsedpinnedtabs", source: SPACE, needle: "setAttribute(\"collapsedpinnedtabs\", \"true\")" },
   { name: "Clear button .zen-workspace-close-unpinned-tabs-button", source: SPACE, needle: "class=\"zen-workspace-close-unpinned-tabs-button\" />" },
-  { name: "rename state .tab-label-container-editing", source: UI, needle: "label.classList.add(\"tab-label-container-editing\");" },
+  { name: "rename state .tab-label-container-editing", source: "src/zen/tabs/ZenTabRenamer.mjs", needle: "label.classList.add(\"tab-label-container-editing\");" },
   { name: "emoji picker anchor [zen-emoji-open]", source: "src/zen/common/emojis/ZenEmojiPicker.mjs", needle: "this.#anchor.setAttribute(\"zen-emoji-open\", \"true\");" },
-  { name: "root attribute zen-sidebar-expanded", source: UI, needle: "document.documentElement.setAttribute(\"zen-sidebar-expanded\", \"true\");" },
+  { name: "root attribute zen-sidebar-expanded", source: "src/zen/common/modules/ZenVerticalTabsManager.mjs", needle: "document.documentElement.setAttribute(\"zen-sidebar-expanded\", \"true\");" },
   { name: "menu item create space", source: POPUPS, needle: "<menuitem data-l10n-id=\"zen-panel-ui-workspaces-create\" command=\"cmd_zenOpenWorkspaceCreation\"/>" },
   // Project-container tabs (openTab with an explicit userContextId): gBrowser.addTab
   // takes the workspace and skips space routing, and an explicit container that
   // is not from an external caller is kept instead of the workspace default.
   { name: "gBrowser.addTab option zenWorkspaceId", source: TABBROWSER, needle: "+      zenWorkspaceId,\n+      skipRoute = false," },
+  // A route container replaces an explicit one only when Zen found a route,
+  // which skipRoute (always passed by openTab) rules out.
   { name: "gBrowser.addTab keeps an explicit non-external userContextId", source: TABBROWSER,
-    needle: "+    if (beforeRouteResult.isRouteFound && (typeof userContextId === \"undefined\" || fromExternal)) {" },
+    needle: "+    if (beforeRouteResult.isRouteFound && this.documentGlobal.gZenSpaceRoutingManager.shouldUseRouteContainer(userContextId, fromExternal, this.documentGlobal)) {" },
+  { name: "skipRoute tabs never find a route", source: ROUTING,
+    needle: "    if (options.skipRoute || options.pinned || options.tabGroup) {\n      return nsZenSpaceRoutingManager.SKIP_TYPE.SKIPPED_TAB;" },
   { name: "gZenWorkspaces.getContextIdIfNeeded keeps an explicit container", source: SPACES,
     needle: "      fromExternal !== true &&\n      typeof userContextId !== \"undefined\" &&\n      userContextId !== activeWorkspaceUserContextId\n    ) {\n      return [userContextId, false, undefined];" },
   // Selecting the new tab can still be refused (openTab reports { selected }).

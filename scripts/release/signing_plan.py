@@ -1,6 +1,6 @@
 """Inside-out Developer ID signing plan for every nested Mach-O in an .app.
 
-Entitlement mapping mirrors the pinned Firefox 156.0 source:
+Entitlement mapping mirrors the pinned Firefox 158.0.1 source (unchanged since 156.0):
 `taskcluster/config.yml` mac-signing > hardened-sign-config > production, with the
 entitlement files from `security/mac/hardenedruntime/production/`. Every item is
 signed with the hardened runtime (`--options runtime`) as Firefox does.

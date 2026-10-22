@@ -107,7 +107,7 @@ Tests: `python3 -m unittest tests/test_release_preview.py` (also collected by
 
 ## Entitlements
 
-Mirrored from the pinned Firefox 156.0 source in the build stage
+Mirrored from the pinned Firefox 158.0.1 source (unchanged since 156.0) in the build stage
 (`/Volumes/AxioSozoBuild/zen/source/engine`). The mapping follows
 `taskcluster/config.yml` → `mac-signing` → `hardened-sign-config` → `production`.
 The files are in `scripts/release/entitlements/`.

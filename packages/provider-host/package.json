@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": "24.14.0" },
+  "engines": { "node": "24.22.1" },
   "scripts": {
     "check": "node cli.mjs check",
     "test": "node --test tests/*.test.mjs"

@@ -17,10 +17,10 @@ BASE = BUILD / "gui-fixtures"
 PROFILE_BASE = BUILD / "runtime/e626697ad91fe95c"
 PYTHON = Path("/Volumes/AxioSozoBuild/toolchains/zen/python/bin/python3.11")
 NODE = Path("/Volumes/AxioSozoBuild/toolchains/zen/node/bin/node")
-POLICY_SHA = "2eb957e809c1b0c3e0edfeab0055460c2c1fbb42816ec55f17d7152bedd1b982"
-NODE_SHA = "5d9d3872911e2340a43b707962e68143de8a4e8d54628845c0c4f2de1fb7cd5c"
-PYTHON_SHA = "6dca871fed269b213f7c94f2b8aad8dd73e699f2994eabffced9dcd3bd628492"
-FILE_PINS = {'packages/provider-host/cli.mjs': 'b9997e1ee509341a3e9f96fa6221d90e369d457d29e57a5838989ad58a9ac65c', 'packages/provider-host/fixtures/understand/common.mjs': 'a7970176dff6e3f6305331e5a25ac4128d9fd10ec97f4ff326102c3463a37936', 'packages/provider-host/fixtures/understand/fake-cli.mjs': 'bb9bc0cf0fcaab18f1fef054a992cf75e267f600c8eee3e486bf64e557160eac', 'packages/provider-host/src/discovery.mjs': 'e53c1f8daa20ea3d9162f8b418fe196bd2b3175da3b636e36e674b74b8af4c9a', 'packages/provider-host/src/understand.mjs': '4fb3555468fc4d5983b967c15bd3bd384ba1f24b0de5dc491ec0b27428206496', 'packages/provider-host/src/validation.mjs': 'f9bc96f48c21c473061c8ab0fea425879a7d7279554542ccaa81134470f81365', 'packages/provider-host/vendor/t3/version.ts': 'd335a12481cab591cf84abc98b1becdec6229674e9e59fd0d8067cf204e8f92f'}
+POLICY_SHA = "9d18d84c61457a9e97fd5548a32542dc0427bd63af817bdbf4114f3e013d0c32"
+NODE_SHA = "2cc28a1880d0774616959f2210ee739bffa6ac695c887e8988a496a21271f6c0"
+PYTHON_SHA = "67909d536cd240fcf4b1125a9ff691ad473ad23156fa4f45611da52233959071"
+FILE_PINS = {'packages/provider-host/cli.mjs': 'b9997e1ee509341a3e9f96fa6221d90e369d457d29e57a5838989ad58a9ac65c', 'packages/provider-host/fixtures/understand/common.mjs': 'a7970176dff6e3f6305331e5a25ac4128d9fd10ec97f4ff326102c3463a37936', 'packages/provider-host/fixtures/understand/fake-cli.mjs': 'bb9bc0cf0fcaab18f1fef054a992cf75e267f600c8eee3e486bf64e557160eac', 'packages/provider-host/src/discovery.mjs': 'e53c1f8daa20ea3d9162f8b418fe196bd2b3175da3b636e36e674b74b8af4c9a', 'packages/provider-host/src/understand.mjs': '6f070833e58709c9a64345a19791c7f61f17baec2db7e58a9538c3eb92f69ef7', 'packages/provider-host/src/validation.mjs': 'f9bc96f48c21c473061c8ab0fea425879a7d7279554542ccaa81134470f81365', 'packages/provider-host/vendor/t3/version.ts': 'd335a12481cab591cf84abc98b1becdec6229674e9e59fd0d8067cf204e8f92f'}
 
 
 def refuse(value):

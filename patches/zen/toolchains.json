@@ -1,10 +1,10 @@
 {
   "node": {
-    "version": "22.22.3",
-    "filename": "node-v22.22.3-darwin-arm64.tar.xz",
-    "url": "https://nodejs.org/dist/v22.22.3/node-v22.22.3-darwin-arm64.tar.xz",
-    "sha256": "753c1629e168cc788ccc46ab61e0b35549fce08c07f82fcd3bb0d41f7fb01e7b",
-    "checksum_source": "https://nodejs.org/dist/v22.22.3/SHASUMS256.txt"
+    "version": "22.23.4",
+    "filename": "node-v22.23.4-darwin-arm64.tar.xz",
+    "url": "https://nodejs.org/dist/v22.23.4/node-v22.23.4-darwin-arm64.tar.xz",
+    "sha256": "037650d0839f457747396f052073fb48333d31bf5abd3c98b74da20d89ebb1ad",
+    "checksum_source": "https://nodejs.org/dist/v22.23.4/SHASUMS256.txt"
   },
   "rust": {
     "version": "1.95.0",
@@ -15,13 +15,13 @@
     "audited_installer_sha256": "3d5a09d2e414c74e2bb6df12b233c4f8ccc8af4e3dfc9fe38401947a1a1acadd"
   },
   "python": {
-    "version": "3.11.16",
+    "version": "3.11.17",
     "distribution": "astral-sh/python-build-standalone",
-    "release": "20260901",
-    "filename": "cpython-3.11.16+20260901-aarch64-apple-darwin-install_only.tar.gz",
-    "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260901/cpython-3.11.16%2B20260901-aarch64-apple-darwin-install_only.tar.gz",
-    "sha256": "50424fa409e8ae84b82a3052522f64695b47dff2158b70bb7358e0ebd6c085c9",
-    "checksum_source": "https://api.github.com/repos/astral-sh/python-build-standalone/releases/tags/20260901"
+    "release": "20261021",
+    "filename": "cpython-3.11.17+20261021-aarch64-apple-darwin-install_only.tar.gz",
+    "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261021/cpython-3.11.17%2B20261021-aarch64-apple-darwin-install_only.tar.gz",
+    "sha256": "b5199d66966141fb6d5447512d2b2fe0398d417da37b1949f58db3792d314eac",
+    "checksum_source": "https://api.github.com/repos/astral-sh/python-build-standalone/releases/tags/20261021"
   },
   "tar": {
     "version": "1.35",

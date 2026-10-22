@@ -26,10 +26,11 @@ STAGE = BUILD / 'source'
 OBJECT = BUILD / 'obj'
 EXTERNAL = '/Users/wout/.local/bin/dev-external'
 MOUNT = '/Users/wout/.local/bin/mount-dev-storage'
-ZEN_SHA = 'f0f21cdade1fd519a660d756942f7032a8c7a518'
-FIREFOX_REVISION = 'a80bd15ddee3b4bf3679aeba340e9d2db933c467'
-FIREFOX_SHA512 = '0463304a0898670d248114f66f7c235166ae2397c3989a7c878c96f0c589fbbba1f1c87432daa22633b9fadd94394adf1dc37f0e67d22b066c75efe5eead75ce'
-FIREFOX_URL = 'https://archive.mozilla.org/pub/firefox/candidates/156.0-candidates/build1/source/firefox-156.0.source.tar.xz'
+ZEN_SHA = '541ee55196395ee8082862b83c84c90ab41d9f6d'
+FIREFOX_REVISION = '48a735cc74a7e6d730f9bf59c3de58f750287a23'
+FIREFOX_SHA512 = 'a5cc16a63f4b43f01bc26e2feb12e54e5281aebdc81775cbc0e8d77dd5ceefa5055e78d2a6ad54895c397d414d1fac13d49ddf28099f534269a6a166dedafa5e'
+FIREFOX_VERSION = '158.0.1'
+FIREFOX_URL = f'https://archive.mozilla.org/pub/firefox/candidates/{FIREFOX_VERSION}-candidates/build1/source/firefox-{FIREFOX_VERSION}.source.tar.xz'
 BUNDLE_ID = 'nl.axiosozo.browser.dev'
 
 
@@ -517,7 +518,7 @@ def run_command(args, cwd=STAGE, env=None):
 
 def fetch_firefox(env=None):
     BUILD.mkdir(parents=True, exist_ok=True)
-    archive = BUILD / 'firefox-156.0.source.tar.xz'
+    archive = BUILD / f'firefox-{FIREFOX_VERSION}.source.tar.xz'
     if not archive.exists():
         partial = archive.with_suffix('.partial')
         run_command(['/usr/bin/curl', '--fail', '--location', '--retry', '3', '--continue-at', '-', '--output', partial, FIREFOX_URL], ROOT, env)
@@ -606,7 +607,7 @@ def setup(build_native=True):
         run_command(['git', '-c', 'core.hooksPath=/dev/null', 'add', '.'], engine, env)
         run_command(['git', '-c', 'core.hooksPath=/dev/null', '-c', 'user.name=AxioSozo Local Build',
                      '-c', 'user.email=build@invalid', '-c', 'commit.gpgsign=false', 'commit', '-qm',
-                     'Pinned Firefox 156.0 source'], engine, env)
+                     f'Pinned Firefox {FIREFOX_VERSION} source'], engine, env)
     brand = engine / 'browser/branding/axiosozo-dev'
     if not brand.exists():
         shutil.copytree(engine / 'browser/branding/unofficial', brand)

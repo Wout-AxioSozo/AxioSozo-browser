@@ -86,13 +86,35 @@ def download(pin):
     return path
 
 
+def retire(destination, previous):
+    """Keep an owned installation of an older pin beside the new one, for rollback."""
+    target = destination.with_name(destination.name + '-' + previous[:12])
+    receipt = destination.parent / (destination.name + '.extraction.json')
+    kept_receipt = target.parent / (target.name + '.extraction.json')
+    for path in (target, kept_receipt):
+        if os.path.lexists(path):
+            raise RuntimeError('RETIRED_TOOLCHAIN_EXISTS: ' + str(path))
+    destination.rename(target)
+    if receipt.is_file():
+        try:
+            receipt.rename(kept_receipt)
+        except OSError:
+            target.rename(destination)
+            raise
+    print(f'Kept the previous {destination.name} toolchain as {target}', flush=True)
+
+
 def extract(archive, destination):
     archive_hash = hash_file(archive)
-    if (destination / '.extracted').is_file():
-        if (destination / '.extracted').read_text().strip() != archive_hash:
-            raise RuntimeError('EXTRACTED_TOOLCHAIN_PIN_MISMATCH: ' + str(destination))
-        return
     receipt = destination.parent / (destination.name + '.extraction.json')
+    if (destination / '.extracted').is_file():
+        previous = (destination / '.extracted').read_text().strip()
+        if previous == archive_hash:
+            return
+        # A pin update: move only our own complete extraction of the old pin aside.
+        if not receipt.is_file() or json.loads(receipt.read_text()) != {'sha256': previous, 'destination': str(destination)}:
+            raise RuntimeError('EXTRACTED_TOOLCHAIN_PIN_MISMATCH: ' + str(destination))
+        retire(destination, previous)
     expected = {'sha256': archive_hash, 'destination': str(destination)}
     if destination.exists():
         if not receipt.is_file() or json.loads(receipt.read_text()) != expected:
@@ -114,8 +136,11 @@ def installed(name, pin):
     marker = TOOLS / name / '.installed'
     if not marker.is_file():
         return False
-    if marker.read_text().strip() != pin['sha256']:
-        raise RuntimeError('INSTALLED_TOOLCHAIN_PIN_MISMATCH: ' + name)
+    previous = marker.read_text().strip()
+    if previous != pin['sha256']:
+        # A pin update: keep the old build for rollback and install the new pin.
+        retire(TOOLS / name, previous)
+        return False
     return True
 
 

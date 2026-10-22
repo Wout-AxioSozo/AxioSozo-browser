@@ -25,7 +25,7 @@ export const UNDERSTAND_FIXTURE_INPUTS = Object.freeze([
   },
   {
     "relative": "packages/provider-host/src/understand.mjs",
-    "sha256": "4fb3555468fc4d5983b967c15bd3bd384ba1f24b0de5dc491ec0b27428206496",
+    "sha256": "6f070833e58709c9a64345a19791c7f61f17baec2db7e58a9538c3eb92f69ef7",
     "maxBytes": 65536
   },
   {
@@ -40,24 +40,24 @@ export const UNDERSTAND_FIXTURE_INPUTS = Object.freeze([
   },
   {
     "relative": "policy.json",
-    "sha256": "2eb957e809c1b0c3e0edfeab0055460c2c1fbb42816ec55f17d7152bedd1b982",
+    "sha256": "9d18d84c61457a9e97fd5548a32542dc0427bd63af817bdbf4114f3e013d0c32",
     "maxBytes": 32768
   },
   {
     "relative": "understand_fixture.py",
-    "sha256": "703a5199a6d6cf8831ff32acc4b7f1261ac6663d92a37ec1c9e0ff2bb87f2b1a",
+    "sha256": "3f9d4ac05a87f7c9aa694eaa57bbbca648338e5be36e136d6d03c87ca91017d8",
     "maxBytes": 65536
   }
 ].map(Object.freeze));
 export const UNDERSTAND_FIXTURE_BINARIES = Object.freeze([
   {
     "path": "/Volumes/AxioSozoBuild/toolchains/zen/python/bin/python3.11",
-    "sha256": "6dca871fed269b213f7c94f2b8aad8dd73e699f2994eabffced9dcd3bd628492",
+    "sha256": "67909d536cd240fcf4b1125a9ff691ad473ad23156fa4f45611da52233959071",
     "maxBytes": 33554432
   },
   {
     "path": "/Volumes/AxioSozoBuild/toolchains/zen/node/bin/node",
-    "sha256": "5d9d3872911e2340a43b707962e68143de8a4e8d54628845c0c4f2de1fb7cd5c",
+    "sha256": "2cc28a1880d0774616959f2210ee739bffa6ac695c887e8988a496a21271f6c0",
     "maxBytes": 134217728
   }
 ].map(Object.freeze));

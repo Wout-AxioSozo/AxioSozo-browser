@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "license": "MPL-2.0",
-  "engines": { "node": "24.14.0" },
+  "engines": { "node": "24.22.1" },
   "exports": { ".": "./src/index.mjs" },
   "scripts": {
     "test": "node --test tests/*.test.mjs"

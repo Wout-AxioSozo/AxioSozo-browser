@@ -8,11 +8,11 @@ ignored generated inputs with upstream remotes; the maintainable local work is i
 
 | Input | Pin | Use |
 | --- | --- | --- |
-| Zen | f0f21cdade1fd519a660d756942f7032a8c7a518 | Application source + small MPL chrome overlay |
-| Firefox | a80bd15ddee3b4bf3679aeba340e9d2db933c467 / 156.0 candidate build 1 | Zen's actual Gecko source selection; SHA512-verified archive extracted and locally committed as a pristine build baseline |
+| Zen | 541ee55196395ee8082862b83c84c90ab41d9f6d / 1.23.4b | Application source + small MPL chrome overlay |
+| Firefox | 48a735cc74a7e6d730f9bf59c3de58f750287a23 / 158.0.1 candidate build 1 | Zen's actual Gecko source selection; SHA512-verified archive extracted and locally committed as a pristine build baseline |
 | Surfer | 1.14.9 | Audited pinned Zen build driver; Zen package-lock retained |
-| CEF | 062ebe433bf6575a71cac2dc71c405617202e3d7 | Official macOS ARM64 minimal binary; version and SHA256 pinned |
-| Chromium | 62d2fcb41a84e4dcefd8c4da7dfa534e6c482854 / 154.0.8037.17 | Engine inside that CEF distribution |
+| CEF | 47dbc1df023e99f006fb9e850a8d83cc19b4fdd9 / 156.0.7 | Official macOS ARM64 minimal binary; version and SHA256 pinned |
+| Chromium | ab5de11f88f0792d2ad84e22abd460412e915f13 / 156.0.8078.17 | Engine inside that CEF distribution |
 | T3 Code | b5a0f810108d42ca8635b5a3d75a6e885bb3a254 | Small audited TypeScript extraction, provenance manifest retained |
 | Helium | Not imported | Complete browser fork; no embedding code needed for current candidate |
 
@@ -33,17 +33,24 @@ lock into that cache, then compiles offline. The clean-cache path was exercised 
 crates were fetched to the project APFS cache, and the next root check passed.
 See `docs/evidence/root-check-20260923-after-fetch.json`.
 
-The current root coordinator and Firefox use the pinned Rust 1.95.0 toolchain.
-Provider tests use the project-pinned Node 22.22.3; there is no separate global
+The root coordinator builds with Rust 1.99.1 from the root `rust-toolchain.toml`
+(rustup); a toolchain change forces a coordinator rebuild. Firefox uses the
+pinned Rust 1.95.0 toolchain.
+Provider tests use the project-pinned Node 22.23.4; there is no separate global
 Node installation requirement. The full Zen toolchain
 is now checksum-pinned and installed only on the T9-backed project volume,
 including cbindgen 0.29.4 and WASI SDK 34. See `patches/zen/toolchains.json` and
 `docs/zen-notes.md`; no global install occurred.
 
-During the 23 September build Surfer reported Firefox 156.0.1 as newer than this
-Zen revision's selected 156.0 source. The pin was retained for reproducibility.
-Review the compatible Zen/Mozilla update and rerun the full native and security
-test matrix before treating this development build as a current daily browser.
+On 22 October 2026 Zen moved from 1.22.3b (Firefox 156.0) to 1.23.4b
+(Firefox 158.0.1), which carries Mozilla's fixes through MFSA 2026-111. Every
+overlay and Firefox-native record was re-derived from the new upstream bytes:
+the anchors were unchanged except for the browser-commands hunk offsets and
+Firefox 158's `WebRenderCommandsResult` return type in the engine-view canvas
+display item. Zen's package-lock is also moved from follow-redirects 1.16.0 to
+1.16.1 (GHSA-q3jh-wrc6-jgq8, GHSA-8r9p-f939-6h3c). The previous checkout is kept
+as `upstream/zen-1.22.3b-f0f21cd`. Rerun the full native and security test
+matrix before treating this development build as a current daily browser.
 
 Security update owner: Wout/the maintainer of this development fork. Before daily
 use and whenever Mozilla, Zen or Chromium announces a relevant fix, review upstream

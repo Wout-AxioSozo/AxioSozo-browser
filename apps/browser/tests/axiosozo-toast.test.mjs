@@ -183,15 +183,15 @@ test("no container, no window or no text: nothing is shown and nothing throws", 
 });
 
 // The markup and classes above are Zen's: if the pinned Zen source changes
-// them, this module must follow (ZenUIManager.mjs, zen-popup.css).
+// them, this module must follow (ZenToasts.mjs, zen-popup.css).
 const ZEN = new URL("../../../upstream/zen/src/", import.meta.url);
 test("Zen's toast container, markup and styles still exist in the pinned Zen source", { skip: !existsSync(ZEN) && "pinned Zen source absent" }, () => {
   const read = path => readFileSync(new URL(path, ZEN), "utf8");
   assert.match(read("browser/base/content/zen-tabbrowser-elements.inc.xhtml"), /<vbox id="zen-toast-container" \/>/u);
-  const manager = read("zen/common/modules/ZenUIManager.mjs");
+  const manager = read("zen/common/modules/ZenToasts.mjs");
   for (const needle of ['document.createXULElement("hbox")', 'document.createXULElement("vbox")', 'document.createXULElement("label")',
-    'description.classList.add("description")', 'button.classList.add("footer-button")', 'button.classList.add("primary")',
-    'wrapper.classList.add("zen-toast")', 'wrapper.setAttribute("button", true)', '{ type: "spring", bounce: 0.2, duration: 0.5 }',
+    'description.classList.add("description")', 'button.classList.add("footer-button", "primary")',
+    'wrapper.classList.add("zen-toast")', 'wrapper.setAttribute("button", true)', '{ type: "spring", bounce: 0.2, duration: 0.5,',
     '{ opacity: [1, 0], scale: [1, 0.5] }', 'getBoolPref("ui.popup.disable_autohide")']) {
     assert.ok(manager.includes(needle), needle);
   }

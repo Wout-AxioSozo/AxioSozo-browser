@@ -46,8 +46,8 @@ Before external builds, the project calls `mount-dev-storage`, then the required
 and cache paths into the AxioSozoBuild volume. Browser scripts never move, resize,
 detach or clean the shared DevStorage volume, and never detach Dev.sparsebundle.
 Two build jobs are used on this 16 GiB Mac.
-The pinned Node 22.22.3, Rust 1.95.0, Python 3.11.16 and GNU tar 1.35 tools pass
-the current component doctor. The lockfile records exact upstream revisions and
+The pinned Node 22.23.4, Rust 1.95.0, Python 3.11.17 and GNU tar 1.35 tools are
+installed and checksum-verified by `scripts/zen_toolchain.py setup`. The lockfile records exact upstream revisions and
 archive hashes; network-enabled setup fetches only verified upstream URLs.
 
 | Command | Behavior |

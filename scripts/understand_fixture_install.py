@@ -15,14 +15,14 @@ WORKTREE = Path("/Volumes/T9/Code/AxioSozo-browser-workstation")
 SOURCE = WORKTREE
 VOLUME = Path("/Volumes/AxioSozoBuild")
 BUILD = VOLUME / "workstation"
-IMAGE = Path("/Volumes/T9/Dev.sparsebundle")  # holds the AxioSozoBuild APFS volume
+T9 = Path("/Volumes/T9")  # its APFS container holds the AxioSozoBuild volume
 BASE = BUILD / "gui-fixtures"
 PROFILE_BASE = BUILD / "runtime/e626697ad91fe95c"
 PYTHON = VOLUME / "toolchains/zen/python/bin/python3.11"
 NODE = VOLUME / "toolchains/zen/node/bin/node"
 BINARY_PINS = (
-    (PYTHON, "6dca871fed269b213f7c94f2b8aad8dd73e699f2994eabffced9dcd3bd628492", 32 * 1024 * 1024),
-    (NODE, "5d9d3872911e2340a43b707962e68143de8a4e8d54628845c0c4f2de1fb7cd5c", 128 * 1024 * 1024),
+    (PYTHON, "67909d536cd240fcf4b1125a9ff691ad473ad23156fa4f45611da52233959071", 32 * 1024 * 1024),
+    (NODE, "2cc28a1880d0774616959f2210ee739bffa6ac695c887e8988a496a21271f6c0", 128 * 1024 * 1024),
 )
 # Closed mapping: no caller-selected paths, manifests, commands or source bytes.
 INPUTS = (
@@ -30,11 +30,11 @@ INPUTS = (
     ("packages/provider-host/fixtures/understand/common.mjs", "packages/provider-host/fixtures/understand/common.mjs", "a7970176dff6e3f6305331e5a25ac4128d9fd10ec97f4ff326102c3463a37936", 65536),
     ("packages/provider-host/fixtures/understand/fake-cli.mjs", "tools/axiosozo-understand/fake-cli.mjs", "bb9bc0cf0fcaab18f1fef054a992cf75e267f600c8eee3e486bf64e557160eac", 65536),
     ("packages/provider-host/src/discovery.mjs", "packages/provider-host/src/discovery.mjs", "e53c1f8daa20ea3d9162f8b418fe196bd2b3175da3b636e36e674b74b8af4c9a", 65536),
-    ("packages/provider-host/src/understand.mjs", "packages/provider-host/src/understand.mjs", "4fb3555468fc4d5983b967c15bd3bd384ba1f24b0de5dc491ec0b27428206496", 65536),
+    ("packages/provider-host/src/understand.mjs", "packages/provider-host/src/understand.mjs", "6f070833e58709c9a64345a19791c7f61f17baec2db7e58a9538c3eb92f69ef7", 65536),
     ("packages/provider-host/src/validation.mjs", "packages/provider-host/src/validation.mjs", "f9bc96f48c21c473061c8ab0fea425879a7d7279554542ccaa81134470f81365", 65536),
     ("packages/provider-host/vendor/t3/version.ts", "packages/provider-host/vendor/t3/version.ts", "d335a12481cab591cf84abc98b1becdec6229674e9e59fd0d8067cf204e8f92f", 65536),
-    ("policy.json", "tools/axiosozo-understand/policy.json", "2eb957e809c1b0c3e0edfeab0055460c2c1fbb42816ec55f17d7152bedd1b982", 32768),
-    ("understand_fixture.py", "tools/axiosozo-understand/understand_fixture.py", "703a5199a6d6cf8831ff32acc4b7f1261ac6663d92a37ec1c9e0ff2bb87f2b1a", 65536),
+    ("policy.json", "tools/axiosozo-understand/policy.json", "9d18d84c61457a9e97fd5548a32542dc0427bd63af817bdbf4114f3e013d0c32", 32768),
+    ("understand_fixture.py", "tools/axiosozo-understand/understand_fixture.py", "3f9d4ac05a87f7c9aa694eaa57bbbca648338e5be36e136d6d03c87ca91017d8", 65536),
 )
 DIRECTORIES = (
     "home", "projects", "projects/harbor", "projects/inkline", "packages", "packages/provider-host",
@@ -180,8 +180,8 @@ def flags(root):
 def os_query(kind):
     # Protected OS metadata tools only. This never invokes fixture/provider code.
     commands = {
-        "image": ["/usr/bin/hdiutil", "info", "-plist"],
         "disk": ["/usr/sbin/diskutil", "info", "-plist", str(VOLUME)],
+        "t9": ["/usr/sbin/diskutil", "info", "-plist", str(T9)],
     }
     require(kind in commands)
     command = commands[kind]
@@ -205,19 +205,19 @@ def os_query(kind):
 
 
 def mounted_volume():
-    with Directory(VOLUME), Directory(IMAGE, public_source=True):
-        require(VOLUME.is_mount() and Path("/Volumes/T9").is_mount())
-        image = os_query("image")
-        require(isinstance(image, dict) and isinstance(image.get("images"), list)
-                and any(isinstance(item, dict) and item.get("image-path") == str(IMAGE)
-                        and isinstance(item.get("system-entities"), list)
-                        and any(isinstance(entity, dict) and entity.get("mount-point") == str(VOLUME)
-                                for entity in item["system-entities"])
-                        for item in image["images"]))
+    # Since October 2026 the build volume is an APFS volume of T9's own
+    # container (formerly inside /Volumes/T9/Dev.sparsebundle).
+    with Directory(VOLUME):
+        require(VOLUME.is_mount() and T9.is_mount())
         disk = os_query("disk")
         require(isinstance(disk, dict) and disk.get("MountPoint") == str(VOLUME)
                 and disk.get("VolumeName") == VOLUME.name
                 and str(disk.get("FilesystemType", "")).lower() == "apfs")
+        t9 = os_query("t9")
+        require(isinstance(t9, dict) and t9.get("MountPoint") == str(T9)
+                and str(t9.get("FilesystemType", "")).lower() == "apfs"
+                and isinstance(t9.get("APFSContainerReference"), str) and t9["APFSContainerReference"] != ""
+                and disk.get("APFSContainerReference") == t9["APFSContainerReference"])
 
 
 def admission(run_id, stack):

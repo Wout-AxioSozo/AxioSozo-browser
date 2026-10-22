@@ -1,8 +1,8 @@
 [
   {
     "path": "build/moz.configure/toolchain.configure",
-    "before_sha256": "54fc5ebb39a8969af24722c0685023100e7545a5daa0dd596009b414a264f1e5",
-    "after_sha256": "034759edfee18a4807d1db0a391836b81fbb835e74f18ff7679b160e1646c7a2",
+    "before_sha256": "47513b4876cae9fecab9f9d48d826f2edf5aec4bdad13823d1324d82437b2f34",
+    "after_sha256": "b48a492795ddcdfecdf29300b4962ce07e06133f68cba5cb1a3d54172979a73d",
     "replacements": [
       [
         "            elif retcode != 0:\n                return None\n\n            elif \"mold\" in stdout:\n",
@@ -12,8 +12,8 @@
   },
   {
     "path": "servo/components/style/queries/feature_expression.rs",
-    "before_sha256": "6156ef9c58adacccdca363ac9a9209b9b868d94d2ab3560a383f55bdab58f4d5",
-    "after_sha256": "badc15746588fc27eddb00136e1c992583306970aef4ff37feade680c09d7919",
+    "before_sha256": "22b2c200508c017e756fff8efb0e8c8c656d7f2cc17ad42fbf5ddb2f62da1351",
+    "after_sha256": "e32f46a0cd2ceccc44a0f64091d717c682c6ff96a5cc6c64b4fd1ec6f5aca755",
     "replacements": [
       [
         "    String(AtomString),\n",
@@ -23,8 +23,8 @@
   },
   {
     "path": "dom/html/HTMLCanvasElement.h",
-    "before_sha256": "569330173da9cd7dd075574f18902c36a1214b3c5023814829cb0496a6a64424",
-    "after_sha256": "0558abb0c6619b5ab4e5974c8880709967c248014c4c7bb42efc68951eb05658",
+    "before_sha256": "e3db4ce16bd6b26a022c629b60304dc67a0251fff33b57ab0b7df43abb3a633f",
+    "after_sha256": "8d3aab5390b831d9af52fb76e1962571fe5dc4bad934822176b17f11ac75d768",
     "replacements": [
       [
         "  layers::ImageContainer* GetImageContainer() const { return mImageContainer; }\n",
@@ -38,8 +38,8 @@
   },
   {
     "path": "dom/html/HTMLCanvasElement.cpp",
-    "before_sha256": "8f7ecc111e5b3655c6ce252ad01bb6837d80b511051b27d4d0a36a6097ef57cd",
-    "after_sha256": "8e35312b979d10e2bc120ecccf8f858504d99f634e219915aac5f8b2cc18cd48",
+    "before_sha256": "8001331abbdb39396378206c026e0266cb65e4777725e45e853df406b79a4fbc",
+    "after_sha256": "0257e45c13f0aec2c2d7bd078866ba57c365b827ccf7be665e3911b8b26b62a7",
     "replacements": [
       [
         "void HTMLCanvasElement::FlushOffscreenCanvas() {\n",
@@ -49,19 +49,19 @@
   },
   {
     "path": "layout/generic/nsHTMLCanvasFrame.cpp",
-    "before_sha256": "75ea40a6cb7c28bec6c8d906692ad6c47a5c468994364c1999ce6c12436937b8",
-    "after_sha256": "cfe5555dfffce174a4705e8826e0737e7632cdbd2d1994ab3cfa8411828840e0",
+    "before_sha256": "645f31138e296a3a61b873d0156a5f23d8caca2a3be0d43d66878e183bdf9a8a",
+    "after_sha256": "2c0201059962aff40400b38addcfac6a2470b024fa322ce6fb4b6f23ba96c80a",
     "replacements": [
       [
         "    element->HandlePrintCallback(mFrame->PresContext());\n\n    if (element->IsOffscreen()) {\n",
-        "    element->HandlePrintCallback(mFrame->PresContext());\n\n    if (RefPtr<ImageContainer> external =\n            element->GetAxioExternalImageContainer()) {\n      // AxioSozo engine-view: frames reach the compositor through the\n      // ImageBridge without the main thread. This only (re)registers the\n      // async image pipeline for the element's current geometry.\n      auto* canvasFrame = static_cast<nsHTMLCanvasFrame*>(mFrame);\n      nsRect dest = canvasFrame->GetDestRect(\n          mFrame->GetContentRectRelativeToSelf() + ToReferenceFrame());\n      LayoutDeviceRect bounds = LayoutDeviceRect::FromAppUnits(\n          dest, mFrame->PresContext()->AppUnitsPerDevPixel());\n      aManager->CommandBuilder().PushImage(this, external, aBuilder,\n                                           aResources, aSc, bounds, bounds);\n      return true;\n    }\n\n    if (element->IsOffscreen()) {\n"
+        "    element->HandlePrintCallback(mFrame->PresContext());\n\n    if (RefPtr<ImageContainer> external =\n            element->GetAxioExternalImageContainer()) {\n      // AxioSozo engine-view: frames reach the compositor through the\n      // ImageBridge without the main thread. This only (re)registers the\n      // async image pipeline for the element's current geometry.\n      auto* canvasFrame = static_cast<nsHTMLCanvasFrame*>(mFrame);\n      nsRect dest = canvasFrame->GetDestRect(\n          mFrame->GetContentRectRelativeToSelf() + ToReferenceFrame());\n      LayoutDeviceRect bounds = LayoutDeviceRect::FromAppUnits(\n          dest, mFrame->PresContext()->AppUnitsPerDevPixel());\n      aManager->CommandBuilder().PushImage(this, external, aBuilder,\n                                           aResources, aSc, bounds, bounds);\n      return Ok();\n    }\n\n    if (element->IsOffscreen()) {\n"
       ]
     ]
   },
   {
     "path": "accessible/mac/mozAccessible.mm",
-    "before_sha256": "139337d8645c8b3bc43fdb76a7acde6563dddc92b7c8af8485d2b88153b6d37a",
-    "after_sha256": "03c60b526443d771dd584126e8eefba48fe944908ee4df7e756e41860a0cdff9",
+    "before_sha256": "60f03051eda8ee14b48f5669723a2451438eddcb8fbf54637f23d37c52a04df8",
+    "after_sha256": "63cef247babe504c29078e451acfbac207091d18f9b5f837b95c343bb2837ddc",
     "replacements": [
       [
         "using namespace mozilla;\nusing namespace mozilla::a11y;\n\n#pragma mark -\n",

@@ -21,7 +21,7 @@ const { createStartPageGate, START_PAGE_URL, START_PAGE_PREF, AxioSozoServices }
 const { ZenWorkspaceAdapter } = await import("../chrome/ZenWorkspaceAdapter.sys.mjs");
 
 const TARGET = "src/browser/base/content/browser-commands-js.patch";
-const BEFORE = "593820654f8f5d8a32bf6535e5b3594659a8b0c6d457dd8695be24d5c2c8c864";
+const BEFORE = "16651739183379aca7213be3e7dbebc33f3f1b8f31aba29b790a1bfec1dcc631";
 const overlay = JSON.parse(readFileSync(new URL("../../../patches/zen/overlay.json", import.meta.url), "utf8"));
 const sha256 = text => createHash("sha256").update(text, "utf8").digest("hex");
 const UPSTREAM = new URL(`../../../upstream/zen/${TARGET}`, import.meta.url);
@@ -29,7 +29,7 @@ const UPSTREAM = new URL(`../../../upstream/zen/${TARGET}`, import.meta.url);
 // The pinned upstream file, byte for byte (its sha256 is BEFORE).
 const ORIGINAL = [
   "diff --git a/browser/base/content/browser-commands.js b/browser/base/content/browser-commands.js",
-  "index 87148c353ee852248e887e3ae31d46bcbee1cd11..91b1d5a8e0e512dd50139f99ad3e3ba7bade80fb 100644",
+  "index 757c5b16612c96f327798f9e47c83144668074f0..1a10a321ee05f2ec84f33f087d8c0e43035fc18b 100644",
   "--- a/browser/base/content/browser-commands.js",
   "+++ b/browser/base/content/browser-commands.js",
   "@@ -13,6 +13,10 @@ var BrowserCommands = {",
@@ -43,7 +43,7 @@ const ORIGINAL = [
   "       try {",
   "         gBrowser.goBack();",
   "       } catch (ex) {}",
-  "@@ -230,6 +234,10 @@ var BrowserCommands = {",
+  "@@ -252,6 +256,10 @@ var BrowserCommands = {",
   "       }",
   "     }",
   " ",
@@ -54,7 +54,7 @@ const ORIGINAL = [
   "     // A notification intended to be useful for modular peformance tracking",
   "     // starting as close as is reasonably possible to the time when the user",
   "     // expressed the intent to open a new tab.  Since there are a lot of",
-  "@@ -346,6 +354,14 @@ var BrowserCommands = {",
+  "@@ -374,6 +382,14 @@ var BrowserCommands = {",
   "       return;",
   "     }",
   " ",
@@ -67,19 +67,8 @@ const ORIGINAL = [
   "+    }",
   "+",
   "     // Keyboard shortcuts that would close a tab that is pinned select the first",
-  "     // unpinned tab instead.",
+  "     // visible unpinned tab instead.",
   "     if (",
-  "@@ -353,8 +369,8 @@ var BrowserCommands = {",
-  "       (event.ctrlKey || event.metaKey || event.altKey) &&",
-  "       gBrowser.selectedTab.pinned",
-  "     ) {",
-  "-      if (gBrowser.visibleTabs.length > gBrowser.pinnedTabCount) {",
-  "-        gBrowser.tabContainer.selectedIndex = gBrowser.pinnedTabCount;",
-  "+      if (gBrowser.visibleTabs.length > gBrowser._numVisiblePinTabs) {",
-  "+        gBrowser.tabContainer.selectedIndex = gBrowser._numVisiblePinTabs;",
-  "       }",
-  "       return;",
-  "     }",
   "",
 ].join("\n");
 
@@ -88,7 +77,7 @@ const ORIGINAL = [
 // source whose sha256 is NATIVE.sha256).
 const NATIVE = {
   path: "/Volumes/AxioSozoBuild/workstation/zen/source/engine/browser/base/content/browser-commands.js",
-  sha256: "1e7ca00f23a0b10cc7f6066da1167ded4685810a3ae0c829924d898a9289f7d3",
+  sha256: "eb16be6fbcdc7706edae8697e2e2c71518eef0f604e970ccb055bc9e7b2985f9",
 };
 const NATIVE_OPEN_TAB = [
   "  openTab({ event, url } = {}) {",
@@ -178,7 +167,7 @@ const record = () => overlay.find(item => item.path === TARGET);
 /** The lines the openTab hunk of a patch adds, as they appear in the native file. */
 function zenBlock(patch) {
   const lines = patch.split("\n");
-  const start = lines.findIndex(line => line.startsWith("@@ -230,6"));
+  const start = lines.findIndex(line => line.startsWith("@@ -252,6"));
   const end = lines.findIndex((line, index) => index > start && line.startsWith("@@ "));
   return lines.slice(start + 1, end).filter(line => line.startsWith("+")).map(line => line.slice(1)).join("\n");
 }
@@ -208,8 +197,8 @@ test("overlay: applying gives exactly the pinned result, reverting gives the ori
   assert.equal(revert(after, record()), ORIGINAL);
   const before = ORIGINAL.split("\n"), lines = after.split("\n");
   assert.equal(lines.length - before.length, 13, "13 added lines, all inside the openTab hunk");
-  assert.deepEqual(lines.filter(line => line.startsWith("@@")), ["@@ -13,6 +13,10 @@ var BrowserCommands = {", "@@ -230,6 +234,23 @@ var BrowserCommands = {",
-    "@@ -346,6 +367,14 @@ var BrowserCommands = {", "@@ -353,8 +382,8 @@ var BrowserCommands = {"]);
+  assert.deepEqual(lines.filter(line => line.startsWith("@@")), ["@@ -13,6 +13,10 @@ var BrowserCommands = {", "@@ -252,6 +256,23 @@ var BrowserCommands = {",
+    "@@ -374,6 +395,14 @@ var BrowserCommands = {"]);
   // Each hunk's counts still match its body (git apply checks them).
   const hunks = after.split(/^(?=@@ )/mu).slice(1);
   for (const hunk of hunks) {

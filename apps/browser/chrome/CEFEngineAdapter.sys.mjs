@@ -6,8 +6,8 @@ import { validateDelegationEvent, validateDelegationCommand } from "./ChromiumBr
 import { validateAXTreeUpdate, validateAXLocation, validateAXCommand } from "./ChromiumAccessibility.sys.mjs";
 // <<<
 
-export const CEF_VERSION = "154.0.23+g062ebe4+chromium-154.0.8037.17";
-export const CHROMIUM_VERSION = "154.0.8037.17";
+export const CEF_VERSION = "156.0.7+g47dbc1d+chromium-156.0.8078.17";
+export const CHROMIUM_VERSION = "156.0.8078.17";
 // Inert identity of a target created at about:blank; never resolvable or loaded.
 export const BLANK_IDENTITY = "https://axiosozo.invalid";
 const MAX_PIXELS = 33554432;

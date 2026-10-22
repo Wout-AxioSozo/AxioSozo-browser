@@ -1,5 +1,7 @@
 """Small security tests for the source overlay and build launch gate; no GUI claims."""
 import importlib.util
+import io
+import tarfile
 import hashlib
 import json
 import os
@@ -287,6 +289,37 @@ class BootstrapTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'UNOWNED_TOOLCHAIN_DESTINATION'):
                 zen.zen_toolchain.extract(archive, destination)
             self.assertEqual(existing.read_text(), 'preserve me')
+
+    def test_toolchain_pin_update_keeps_the_owned_previous_extraction(self):
+        with tempfile.TemporaryDirectory(prefix='axiosozo-toolchain-update-') as directory:
+            root = Path(directory)
+            archive = root / 'tool.tar'
+            with tarfile.open(archive, 'w') as package:
+                info = tarfile.TarInfo('tool-2/bin/tool')
+                info.size = 3
+                package.addfile(info, io.BytesIO(b'new'))
+            destination = root / 'tool'
+            (destination / 'bin').mkdir(parents=True)
+            (destination / 'bin/tool').write_text('old')
+            old = 'a' * 64
+            (destination / '.extracted').write_text(old + '\n')
+            receipt = root / 'tool.extraction.json'
+            with patch.object(zen.zen_toolchain, 'run', side_effect=lambda args, cwd=None: subprocess.run(args, check=True)):
+                receipt.write_text(json.dumps({'sha256': 'b' * 64, 'destination': str(destination)}) + '\n')
+                with self.assertRaisesRegex(RuntimeError, 'EXTRACTED_TOOLCHAIN_PIN_MISMATCH'):
+                    zen.zen_toolchain.extract(archive, destination)
+                self.assertEqual((destination / 'bin/tool').read_text(), 'old', 'an unowned install is never moved')
+                receipt.write_text(json.dumps({'sha256': old, 'destination': str(destination)}) + '\n')
+                zen.zen_toolchain.extract(archive, destination)
+            kept = root / ('tool-' + old[:12])
+            self.assertEqual((kept / 'bin/tool').read_text(), 'old')
+            # A second retirement to the same names never replaces the kept copy or its receipt.
+            with self.assertRaisesRegex(RuntimeError, 'RETIRED_TOOLCHAIN_EXISTS'):
+                zen.zen_toolchain.retire(destination, old)
+            self.assertEqual((destination / 'bin/tool').read_text(), 'new')
+            self.assertTrue((root / (kept.name + '.extraction.json')).is_file())
+            self.assertEqual((destination / 'bin/tool').read_text(), 'new')
+            self.assertEqual((destination / '.extracted').read_text().strip(), zen.zen_toolchain.hash_file(archive))
 
     def test_missing_custom_build_does_not_substitute_installed_browser(self):
         original = zen.BUILD

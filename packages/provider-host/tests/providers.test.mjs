@@ -116,4 +116,6 @@ test('T3 version extraction and bounded redaction regressions', () => {
   assert.equal(appendAcpStderrTail('x'.repeat(4096), 'abc').length, 4096);
   const result = sanitizeAcpStderrExcerpt('Authorization: Bearer secret-value\nx-api-key: secret-api\n/Users/synthetic/file\nhttp://localhost/pair#abc', { HOME: '/Users/synthetic' });
   assert(!result.includes('secret-value') && !result.includes('secret-api') && !result.includes('/Users/synthetic') && !result.includes('#abc'));
+  const signIn = sanitizeAcpStderrExcerpt('Sign in: https://accounts.google.com/o/oauth2/v2/auth?state=oauth-state-value', { HOME: '/Users/synthetic' });
+  assert(signIn.includes('[sign-in-url]') && !signIn.includes('oauth-state-value'));
 });

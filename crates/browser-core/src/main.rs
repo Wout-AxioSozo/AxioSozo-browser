@@ -67,10 +67,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let epoch = Instant::now();
     let stdout = io::stdout();
     let mut output = stdout.lock();
-    loop {
-        let Some(frame) = read_frame(&mut input, MAX_FRAME)? else {
-            break;
-        };
+    while let Some(frame) = read_frame(&mut input, MAX_FRAME)? {
         // Decode errors terminate the untrusted stream; never echo malformed input/secrets.
         let envelope: Envelope =
             serde_json::from_slice(&frame).map_err(|_| "invalid IPC schema")?;

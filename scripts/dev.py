@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 import platform
 import signal
-import shutil
 import subprocess
 import sys
 
@@ -30,6 +29,7 @@ CARGO_HOME_DIR = storage.VOLUME / "cargo-home"
 SUBROOT = storage.BUILD_ROOT != storage.VOLUME
 os.environ["AXIOSOZO_BUILD_ROOT"] = str(storage.BUILD_ROOT)
 ZEN = ROOT / "scripts" / "zen.py"
+ZEN_TOOLCHAIN = ROOT / "scripts" / "zen_toolchain.py"
 PROJECT_READER = ROOT / "scripts" / "project_reader.py"
 ARRIVAL_SUBPROCESS = ROOT / "scripts" / "arrival_subprocess.py"
 AGENT_SOCKET_INSTALL = ROOT / "scripts" / "agent_socket_install.py"
@@ -44,14 +44,31 @@ RELEASE = ROOT / "scripts" / "release" / "preview.py"
 
 
 def provider_node():
-    # Setup already verifies this project-local runtime. Do not make normal
-    # browser use depend on the developer's global Node installation.
+    # Setup verifies this project-local runtime. Never fall back to an
+    # unverified global Node installation or run an install of an older pin.
     pinned = storage.VOLUME / "toolchains/zen/node/bin/node"
-    return str(pinned) if pinned.is_file() else shutil.which("node") or ""
+    if not pinned.is_file():
+        raise RuntimeError(f"pinned Node {pinned} is missing; run ./dev setup")
+    expected = json.loads((ROOT / "patches/zen/toolchains.json").read_text())["node"]["sha256"]
+    receipt = pinned.parents[1] / ".extracted"
+    if not receipt.is_file() or receipt.read_text().strip() != expected:
+        raise RuntimeError(f"pinned Node {pinned} is not the current pin; run ./dev setup")
+    return str(pinned)
+
+
+def rustc_version():
+    # The compiler rustup selects for this checkout (rust-toolchain.toml); never installs one.
+    result = subprocess.run(["rustc", "-vV"], cwd=ROOT, capture_output=True,
+                            env={**storage.safe_environment(os.environ), "RUSTUP_AUTO_INSTALL": "0"})
+    if result.returncode:
+        raise RuntimeError("rustc -vV failed: " + result.stderr.decode(errors="replace").strip())
+    return result.stdout
 
 
 def core_fingerprint():
     digest = hashlib.sha256()
+    # A toolchain change must force a rebuild, not only a source change.
+    digest.update(rustc_version())
     paths = [ROOT / "Cargo.toml", ROOT / "Cargo.lock", *sorted((ROOT / "crates").rglob("*.rs")),
              *sorted((ROOT / "crates").rglob("Cargo.toml"))]
     for path in paths:
@@ -78,15 +95,16 @@ def core_ready():
         data = json.loads(stamp.read_text())
         return (data.get("fingerprint") == core_fingerprint()
                 and data.get("binary_sha256") == hashlib.sha256(CORE.read_bytes()).hexdigest())
-    except (OSError, ValueError):
+    except (OSError, ValueError, RuntimeError):
         return False
 
 
 def run(argv, build=False, env=None):
     if signal.getsignal(signal.SIGCHLD) != signal.SIG_DFL:
         raise RuntimeError("DEFAULT_SIGCHLD_REQUIRED")
+    env = storage.safe_environment(os.environ if env is None else env)
     if build:
-        mounted = subprocess.run([MOUNT], cwd=ROOT)
+        mounted = subprocess.run([MOUNT], cwd=ROOT, env=env)
         if mounted.returncode:
             return mounted.returncode
         if not storage.mounted():
@@ -96,7 +114,7 @@ def run(argv, build=False, env=None):
         CARGO_HOME_DIR.mkdir(parents=True, exist_ok=True)
         argv = [WRAPPER, sys.executable, ROOT / "scripts/storage.py", "exec", "--", *argv]
     if CARGO_HOME_DIR.is_dir():
-        env = {**(os.environ if env is None else env), "CARGO_HOME": str(CARGO_HOME_DIR)}
+        env["CARGO_HOME"] = str(CARGO_HOME_DIR)
     process = subprocess.Popen([str(item) for item in argv], cwd=ROOT, env=env, start_new_session=True)
     try:
         return process.wait()
@@ -131,7 +149,11 @@ def component(script, *args):
     if not script.is_file():
         print("BLOCKED_ENV: component entrypoint missing:", script.relative_to(ROOT), flush=True)
         return 2
-    command = provider_node() if script.suffix == ".mjs" else sys.executable
+    try:
+        command = provider_node() if script.suffix == ".mjs" else sys.executable
+    except RuntimeError as error:
+        print("BLOCKED_ENV:", error, flush=True)
+        return 2
     return run([command, script, *args])
 
 
@@ -168,6 +190,8 @@ def setup_components():
         results.append(run(["cargo", "fetch", "--locked"], build=True))
     # Each component completes independently; do not make CEF/core depend on Gecko build.
     results.append(build_core())
+    # The provider host runs only on the pinned, checksum-verified Node.
+    results.append(component(ZEN_TOOLCHAIN, "fetch"))
     results.append(component(PROVIDER, "setup"))
     results.append(component(PROVIDER, "keychain-positive-setup"))
     results.append(component(CEF, "setup"))
@@ -304,6 +328,13 @@ def daily(profile):
     if component(ZEN, "ready"):
         print("BLOCKED_ENV: no verified AxioSozo Zen build; services were not started", flush=True)
         return 2
+    # Trusted Gecko chrome creates its own authenticated Subprocess pipes.
+    # This supervisor supplies executable locations only, never a root token.
+    try:
+        env = browser_environment()
+    except RuntimeError as error:
+        print("BLOCKED_ENV:", error, flush=True)
+        return 2
     def interrupted(_signum, _frame):
         raise KeyboardInterrupt
     signal.signal(signal.SIGTERM, interrupted)
@@ -311,9 +342,6 @@ def daily(profile):
         with OwnedSession(SESSION_ROOT / profile) as session:
             gecko_profile = private_directory(session.path / "gecko")
             (gecko_profile / ".axiosozo-dev-profile").touch(mode=0o600)
-            # Trusted Gecko chrome creates its own authenticated Subprocess pipes.
-            # This supervisor supplies executable locations only, never a root token.
-            env = browser_environment()
             # CEF's fixture profile is a child of this locked, app-owned session.
             # The native adapter validates this path against Gecko's actual ProfD.
             env["AXIOSOZO_SESSION_RUNTIME"] = str(session.path)

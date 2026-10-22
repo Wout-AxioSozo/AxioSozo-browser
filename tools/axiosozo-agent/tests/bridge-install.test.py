@@ -147,7 +147,7 @@ class InstallerTests(unittest.TestCase):
 
     def test_manifest_policy_known_production_digest(self):
         self.assertEqual(hashlib.sha256(installer.manifest_bytes()).hexdigest(),
-                         '9a03b23584b179763152186d19b954c5b06440fba07b006d935fece194e4daf0')
+                         '7e3bc2f4aa1c034dacd1bb847461b01c2ef535ff1da4c8f2175e31261838bfda')
         self.assertTrue(installer.manifest_bytes().endswith((installer.NODE_SHA256 + '  node\n').encode()))
 
     def test_setup_check_and_verified_reuse(self):

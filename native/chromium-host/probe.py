@@ -22,13 +22,14 @@ import time
 ROOT = Path(__file__).resolve().parents[2]
 BUILD_ROOT = Path(os.environ.get('AXIOSOZO_BUILD_ROOT', '/Volumes/AxioSozoBuild'))
 BASE = BUILD_ROOT / 'cef'
-LEGACY_ARCHIVE = Path('/Volumes/DevStorage/builds/axiosozo-cef-handoff1/cef-minimal.tar.bz2')
-VERSION = '154.0.23+g062ebe4+chromium-154.0.8037.17'
+VERSION = '156.0.7+g47dbc1d+chromium-156.0.8078.17'
 ARCHIVE_NAME = f'cef_binary_{VERSION}_macosarm64_minimal.tar.bz2'
 CEF = BASE / ARCHIVE_NAME.removesuffix('.tar.bz2')
-ARCHIVE = BASE / 'cef-minimal.tar.bz2'
+# Versioned, so a previous pin's archive is never resumed into or reused.
+ARCHIVE = BASE / ARCHIVE_NAME
 URL = 'https://cef-builds.spotifycdn.com/' + ARCHIVE_NAME.replace('+', '%2B')
-SHA256 = '5b9c248b30db8d41dd2cf5c6f920ef4991c60e514f863413db542d0448ddf777'
+SHA256 = 'd9a4e98dfde499bfecc49ec2290395fbfffc3923fed5f967bb95c6e05e03e903'
+ARCHIVE_BYTES = 134827440
 APP = BASE / 'AxioCEFProbe.app'
 BINARY = APP / 'Contents/MacOS/AxioCEFProbe'
 EVIDENCE = ROOT / 'docs/evidence'
@@ -229,10 +230,7 @@ def setup():
     if not BUILD_ROOT.exists():
         raise RuntimeError('BLOCKED_ENV: AXIOSOZO_BUILD_ROOT is not ready')
     BASE.mkdir(parents=True, exist_ok=True)
-    if not ARCHIVE.exists() and LEGACY_ARCHIVE.exists():
-        # Copy, never move, the previously verified archive. Recheck the copy.
-        shutil.copy2(LEGACY_ARCHIVE, ARCHIVE)
-    if not ARCHIVE.exists() or ARCHIVE.stat().st_size != 132223579:
+    if not ARCHIVE.exists() or ARCHIVE.stat().st_size != ARCHIVE_BYTES:
         run_command(['curl', '--fail', '--location', '--max-time', '180',
                      '--speed-time', '20', '--speed-limit', '1024', '--continue-at', '-',
                      URL, '--output', ARCHIVE])
@@ -255,8 +253,11 @@ def setup():
     frameworks.mkdir(exist_ok=True)
     framework = frameworks / 'Chromium Embedded Framework.framework'
     # Clone on the external APFS volume where possible; avoid a second large copy.
-    if not framework.exists():
-        run_command(['cp', '-cR', CEF / 'Release/Chromium Embedded Framework.framework', framework])
+    # Never keep a framework copied from a previous pin: the host's API hash and
+    # version check would reject it at launch.
+    if framework.exists():
+        shutil.rmtree(framework)
+    run_command(['cp', '-cR', CEF / 'Release/Chromium Embedded Framework.framework', framework])
     # Xcode 26 requires a versioned framework. Preserve official contents and notices.
     if not (framework / 'Versions/A').exists():
         entries = list(framework.iterdir())
@@ -276,7 +277,7 @@ def setup():
         directory.mkdir(exist_ok=True)
     common = [EXTERNAL, 'env', 'TMPDIR=' + str(BASE / 'tmp'),
               'CLANG_MODULE_CACHE_PATH=' + str(BASE / 'clang-cache'), 'xcrun', 'clang++', '-std=c++20', '-fobjc-arc',
-              '-arch', 'arm64', '-mmacosx-version-min=14.5', '-DCEF_USE_SANDBOX=1', '-DCEF_API_VERSION=15400',
+              '-arch', 'arm64', '-mmacosx-version-min=14.5', '-DCEF_USE_SANDBOX=1', '-DCEF_API_VERSION=15600',
               '-I', CEF, '-framework', 'Cocoa', source]
     # Only the browser process links the Mach/IOSurface transport. Helpers compile
     # inert stubs (AXIO_CEF_HELPER) and never link Metal or IOSurface.

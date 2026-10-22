@@ -8,7 +8,8 @@
 // each keydown (and its own `char`) the host sends one inert probe: a KEYEVENT_CHAR
 // with is_system_key set. Blink answers such a char kNotHandled before any DOM
 // dispatch or suppression check (WebFrameWidgetImpl::HandleCharEvent, Chromium
-// 154.0.8037.17; no access-key modifiers, keycode not Backspace/Escape), so the page
+// 156.0.8078.17, unchanged since 154.0.8037.17; no access-key modifiers, keycode
+// not Backspace/Escape), so the page
 // never observes it and it always returns through OnKeyEvent. A keydown whose own
 // unhandled report precedes its probe is `key_not_consumed`; one whose probe
 // arrives first was consumed by the renderer. The probe is deferred until the

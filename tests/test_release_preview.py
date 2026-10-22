@@ -381,6 +381,24 @@ class BundleChecks(ReleaseTestCase):
         safe = bundle_checks.safe_browsing(app)
         self.assertEqual(safe['state'], 'ABSENT')
         self.assertIn('WITHOUT phishing and malware protection', artifacts.safe_browsing_sentence(safe['state']))
+        self.assertEqual([item['level'] for item in safe['findings']], ['warning'])
+
+    def test_safe_browsing_absent_blocks_distribution(self):
+        app = make_app(self.base / 'build')
+        safe = bundle_checks.safe_browsing(app, distribution=True)
+        self.assertEqual([(item['level'], item['code']) for item in safe['findings']],
+                         [('blocker', 'SAFE_BROWSING_KEY_ABSENT')])
+        present = make_app(self.base / 'keyed', constants=(
+            'MOZ_UPDATER: false,\nMOZ_GOOGLE_SAFEBROWSING_API_KEY: "SYNTHETIC-KEY-VALUE",\n'))
+        self.assertEqual(bundle_checks.safe_browsing(present, distribution=True)['findings'], [])
+        repo = make_repo(self.base)
+        args = ['--dry-run', '--app', str(app), '--cef-app', 'none', '--stage-root', str(self.stage_root),
+                '--identity', IDENTITY, '--team-id', 'ABCDE12345']
+        _, local = self.run_main(args, repo)
+        self.assertIn('WARNING SAFE_BROWSING_KEY_ABSENT', local)
+        self.assertNotIn('BLOCKER [preflight] SAFE_BROWSING_KEY_ABSENT', local)
+        _, notarized = self.run_main(args + ['--notarize', '--authorized'], repo)
+        self.assertIn('BLOCKER [preflight] SAFE_BROWSING_KEY_ABSENT', notarized)
 
     def test_updater_enabled_blocks(self):
         app = make_app(self.base / 'build', constants='MOZ_UPDATER: true,\n')

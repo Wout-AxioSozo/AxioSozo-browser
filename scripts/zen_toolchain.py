@@ -39,14 +39,12 @@ def pins():
 
 
 def environment():
-    env = os.environ.copy()
+    env = storage.safe_environment(os.environ)
     # A desktop terminal may carry another project's release/cross-compile flags.
     # Only this repository's maintained configuration selects native build mode.
     for key in ['ZEN_RELEASE', 'ZEN_CROSS_COMPILING', 'SCCACHE_GHA_ENABLED',
                 'SURFER_MOZCONFIG_ONLY', 'MOZCONFIG', 'MOZ_ARTIFACT_BUILDS',
-                'CC', 'CXX', 'CFLAGS', 'CXXFLAGS', 'CPPFLAGS', 'LDFLAGS',
-                'RUSTC', 'RUSTC_WRAPPER', 'RUSTFLAGS',
-                'CARGO_ENCODED_RUSTFLAGS', 'RUSTUP_TOOLCHAIN', 'BASH_ENV', 'ENV',
+                'CC', 'CXX', 'CFLAGS', 'CXXFLAGS', 'CPPFLAGS', 'LDFLAGS', 'BASH_ENV', 'ENV',
                 'CDPATH', 'MAKEFLAGS', 'MFLAGS', 'DESTDIR', 'MOZ_FETCHES_DIR',
                 'MOZBUILD_STATE_PATH', 'MACHRC', 'TASK_ID', 'MOZ_SCM_LEVEL',
                 'MACH_USE_SYSTEM_PYTHON', 'MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE']:
@@ -88,13 +86,35 @@ def download(pin):
     return path
 
 
+def retire(destination, previous):
+    """Keep an owned installation of an older pin beside the new one, for rollback."""
+    target = destination.with_name(destination.name + '-' + previous[:12])
+    receipt = destination.parent / (destination.name + '.extraction.json')
+    kept_receipt = target.parent / (target.name + '.extraction.json')
+    for path in (target, kept_receipt):
+        if os.path.lexists(path):
+            raise RuntimeError('RETIRED_TOOLCHAIN_EXISTS: ' + str(path))
+    destination.rename(target)
+    if receipt.is_file():
+        try:
+            receipt.rename(kept_receipt)
+        except OSError:
+            target.rename(destination)
+            raise
+    print(f'Kept the previous {destination.name} toolchain as {target}', flush=True)
+
+
 def extract(archive, destination):
     archive_hash = hash_file(archive)
-    if (destination / '.extracted').is_file():
-        if (destination / '.extracted').read_text().strip() != archive_hash:
-            raise RuntimeError('EXTRACTED_TOOLCHAIN_PIN_MISMATCH: ' + str(destination))
-        return
     receipt = destination.parent / (destination.name + '.extraction.json')
+    if (destination / '.extracted').is_file():
+        previous = (destination / '.extracted').read_text().strip()
+        if previous == archive_hash:
+            return
+        # A pin update: move only our own complete extraction of the old pin aside.
+        if not receipt.is_file() or json.loads(receipt.read_text()) != {'sha256': previous, 'destination': str(destination)}:
+            raise RuntimeError('EXTRACTED_TOOLCHAIN_PIN_MISMATCH: ' + str(destination))
+        retire(destination, previous)
     expected = {'sha256': archive_hash, 'destination': str(destination)}
     if destination.exists():
         if not receipt.is_file() or json.loads(receipt.read_text()) != expected:
@@ -116,8 +136,11 @@ def installed(name, pin):
     marker = TOOLS / name / '.installed'
     if not marker.is_file():
         return False
-    if marker.read_text().strip() != pin['sha256']:
-        raise RuntimeError('INSTALLED_TOOLCHAIN_PIN_MISMATCH: ' + name)
+    previous = marker.read_text().strip()
+    if previous != pin['sha256']:
+        # A pin update: keep the old build for rollback and install the new pin.
+        retire(TOOLS / name, previous)
+        return False
     return True
 
 

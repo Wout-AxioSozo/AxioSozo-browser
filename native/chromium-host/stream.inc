@@ -419,8 +419,8 @@ static void streamCommand(const std::string& line){
     if(surfaceMode&&!(tab->surface=axio::surface::createTarget())){delete tab;unsupported(requestId,@"surface_unavailable");return;}
     creating=tab;tabsByKey[keyOf(tab->key)]=tab;
     cef_window_info_t wi{};wi.size=sizeof(wi);wi.windowless_rendering_enabled=1;wi.runtime_style=CEF_RUNTIME_STYLE_ALLOY;
-    // Shared textures: CEF 154 OSR delivers viz capture IOSurfaces on macOS
-    // (libcef/browser/osr/video_consumer_osr.cc:178-185) despite the stale
+    // Shared textures: CEF 156 OSR delivers viz capture IOSurfaces on macOS
+    // (libcef/browser/osr/video_consumer_osr.cc:184-191) despite the stale
     // "Windows only" header comment. External begin frames are opt-in.
     wi.shared_texture_enabled=surfaceMode;wi.external_begin_frame_enabled=surfaceBeginFrames;
     cef_browser_settings_t settings{};settings.size=sizeof(settings);settings.windowless_frame_rate=frameRate;

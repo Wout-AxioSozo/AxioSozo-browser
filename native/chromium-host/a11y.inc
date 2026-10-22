@@ -11,7 +11,7 @@
 //   * Tree and location payloads go through axio::ax::Mirror (a11y_core.hpp):
 //     flat wire ids, password redaction, size caps, coalescing and credit-based
 //     flow control (`ax_ack`), then out as `ax_tree_update` / `ax_location`.
-//   * `ax_action` maps assistive actions onto the only C-API paths CEF 154 OSR has:
+//   * `ax_action` maps assistive actions onto the only C-API paths CEF 156 OSR has:
 //     synthesized mouse/wheel/key input, frame select_all and IME commit. There is
 //     no AXActionData entry point in the C API (limits in the design doc §5).
 //

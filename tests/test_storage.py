@@ -145,9 +145,19 @@ class Ensure(StorageTestCase):
             active = patch.object(storage, name)
             setattr(self, name, active.start())
             self.addCleanup(active.stop)
-        active = patch.object(storage, 'report', return_value={'mounted': True})
-        active.start()
-        self.addCleanup(active.stop)
+        # The image layout, where the helper mounts the build volume.
+        for active in (patch.object(storage, 'report', return_value={'mounted': True}),
+                       patch.object(storage, 't9_container', return_value=None)):
+            active.start()
+            self.addCleanup(active.stop)
+
+    def test_native_layout_mounts_from_the_container_without_the_image_helper(self):
+        with patch.object(storage, 'IMAGE', self.base / 'Dev.sparsebundle'), \
+             patch.object(storage, 't9_container', return_value='disk5'), \
+             patch.object(storage, 'mounted', side_effect=[False, False, True]):
+            self.assertEqual(storage.ensure(), {'mounted': True})
+        self.attach_and_mount.assert_called_once_with()
+        self.assertEqual(self.runs(), ['lock-free'], 'only the DevStorage helper ran')
 
     def test_devstorage_failure_stops_before_the_build_volume(self):
         storage.MOUNT_SHARED = self.helper('shared', 1)
@@ -230,10 +240,12 @@ class Preflight(unittest.TestCase):
             active = patch.object(storage, name, value)
             active.start()
             self.addCleanup(active.stop)
-        # Only T9 counts as mounted; the temporary mountpoint never is.
-        active = patch.object(Path, 'is_mount', lambda path: str(path) == '/Volumes/T9')
-        active.start()
-        self.addCleanup(active.stop)
+        # Only T9 counts as mounted; the temporary mountpoint never is. The
+        # image layout: T9 itself is no APFS container.
+        for active in (patch.object(Path, 'is_mount', lambda path: str(path) == '/Volumes/T9'),
+                       patch.object(storage, 't9_container', return_value=None)):
+            active.start()
+            self.addCleanup(active.stop)
 
     def test_absent_or_empty_mountpoint_passes(self):
         storage.preflight()
@@ -260,19 +272,114 @@ class Preflight(unittest.TestCase):
             storage.preflight()
 
 
+class NativeLayout(unittest.TestCase):
+    """Since October 2026 the build volume is a volume of T9's own APFS container."""
+    def disks(self, build):
+        t9 = {'VolumeName': 'T9', 'MountPoint': '/Volumes/T9', 'FilesystemType': 'apfs', 'APFSContainerReference': 'disk5'}
+        return lambda target: t9 if str(target) == '/Volumes/T9' else build
+
+    def verified(self, build, images=()):
+        with patch.object(Path, 'is_mount', lambda path: str(path) in ('/Volumes/T9', str(storage.VOLUME))), \
+             patch.object(storage, 'disk_info', side_effect=self.disks(build)), \
+             patch.object(storage, 'image_mounts', return_value=list(images)):
+            return storage.volume_verified()
+
+    def test_build_volume_in_the_t9_container_is_verified(self):
+        build = {'VolumeName': 'AxioSozoBuild', 'MountPoint': str(storage.VOLUME), 'FilesystemType': 'apfs',
+                 'APFSContainerReference': 'disk5'}
+        self.assertTrue(self.verified(build))
+        self.assertFalse(self.verified({**build, 'APFSContainerReference': 'disk7'}), 'another container')
+        self.assertTrue(self.verified({**build, 'APFSContainerReference': 'disk7'}, [str(storage.VOLUME)]), 'legacy image')
+        self.assertFalse(self.verified({**build, 'VolumeName': 'Other'}))
+        self.assertFalse(self.verified({**build, 'FilesystemType': 'exfat'}))
+
+    def test_fallback_mounts_only_the_unmounted_build_volume_of_the_container(self):
+        calls = []
+        volumes = [('disk5s1', 'T9', '/Volumes/T9'), ('disk5s2', 'DevStorage', '/Volumes/DevStorage'),
+                   ('disk5s3', 'AxioSozoBuild', None)]
+        with patch.object(storage, 'IMAGE', Path('/nonexistent/Dev.sparsebundle')), \
+             patch.object(storage, 't9_container', return_value='disk5'), \
+             patch.object(storage, 'container_volumes', return_value=volumes), \
+             patch.object(storage, 'image_entities', side_effect=AssertionError('no image attach')), \
+             patch.object(storage.subprocess, 'run', side_effect=lambda argv, **_: calls.append(argv)):
+            storage.attach_and_mount()
+            self.assertEqual(calls, [['/usr/sbin/diskutil', 'mount', 'nobrowse', 'disk5s3']])
+            with patch.object(storage, 'container_volumes', return_value=volumes[:2]):
+                with self.assertRaisesRegex(RuntimeError, 'Expected exactly one'):
+                    storage.attach_and_mount()
+
+    def test_preflight_needs_no_image_in_the_native_layout(self):
+        with tempfile.TemporaryDirectory(prefix='storage-native-') as directory, \
+             patch.object(storage, 'VOLUME', Path(directory) / 'AxioSozoBuild'), \
+             patch.object(storage, 'IMAGE', Path(directory) / 'Dev.sparsebundle'), \
+             patch.object(Path, 'is_mount', lambda path: str(path) == '/Volumes/T9'), \
+             patch.object(storage, 't9_container', return_value='disk5'):
+            storage.preflight()
+
+
 class AttachAndMount(unittest.TestCase):
     def test_only_attaches_without_mounting_and_mounts_the_build_volume(self):
         calls = []
         entities = [{'dev-entry': '/dev/disk9s1', 'mount-point': '/elsewhere'},
                     {'dev-entry': '/dev/disk9s2'}, {'dev-entry': '/dev/disk9s3'}]
         names = {'/dev/disk9s2': 'DevStorage', '/dev/disk9s3': 'AxioSozoBuild'}
-        with patch.object(storage, 'image_entities', side_effect=[None, entities]), \
+        with patch.object(storage, 't9_container', return_value=None), \
+             patch.object(storage, 'image_entities', side_effect=[None, entities]), \
              patch.object(storage, 'disk_info', side_effect=lambda device: {
                  'VolumeName': names[device], 'FilesystemType': 'apfs'}), \
              patch.object(storage.subprocess, 'run', side_effect=lambda argv, **_: calls.append(argv)):
             storage.attach_and_mount()
         self.assertEqual(calls, [['/usr/bin/hdiutil', 'attach', '-nomount', str(storage.IMAGE)],
                                  ['/usr/sbin/diskutil', 'mount', 'nobrowse', '/dev/disk9s3']])
+
+
+class SafeEnvironment(unittest.TestCase):
+    """Inherited settings may not change which code npm, mach or cargo run, or weaken TLS."""
+
+    KEPT = {'PATH': '/usr/bin:/bin', 'HTTPS_PROXY': 'http://proxy.invalid:3128', 'http_proxy': 'http://p.invalid',
+            'NO_PROXY': 'localhost', 'NODE_EXTRA_CA_CERTS': '/invented/ca.pem', 'SSL_CERT_FILE': '/invented/ca.pem',
+            'SSL_CERT_DIR': '/invented/certs', 'CARGO_HTTP_CAINFO': '/invented/ca.pem',
+            'npm_config_cafile': '/invented/ca.pem', 'npm_config_proxy': 'http://proxy.invalid:3128',
+            'npm_config_https_proxy': 'http://proxy.invalid:3128', 'CARGO_HOME': '/invented/cargo-home',
+            'CARGO_TARGET_DIR': '/invented/target', 'CARGO_BUILD_JOBS': '2', 'npm_config_cache': '/invented/npm',
+            'npm_config_userconfig': '/dev/null', 'npm_config_ignore_scripts': 'true'}
+    DROPPED = {'NODE_OPTIONS': '--require=/invented/hook.js', 'NODE_PATH': '/invented', 'NODE_REPL_EXTERNAL_MODULE': 'x',
+               'NODE_TLS_REJECT_UNAUTHORIZED': '1', 'npm_config_registry': 'https://invented.invalid',
+               'NPM_CONFIG_REGISTRY': 'https://invented.invalid', 'npm_config_@scope:registry': 'https://invented.invalid',
+               'npm_config_ignore_scripts': 'false', 'npm_config_script_shell': '/invented/sh',
+               'npm_config_node_options': '--require=/invented/hook.js', 'RUSTC': '/invented/rustc',
+               'RUSTC_WRAPPER': '/invented/hook', 'RUSTC_WORKSPACE_WRAPPER': '/invented/hook', 'RUSTFLAGS': '-Cx',
+               'CARGO_ENCODED_RUSTFLAGS': '-Cx', 'RUSTDOCFLAGS': '-Cx', 'RUSTUP_TOOLCHAIN': 'nightly',
+               'CARGO_BUILD_RUSTC_WRAPPER': '/invented/hook', 'CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS': '-Cx',
+               'CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER': '/invented/ld',
+               'CARGO_TARGET_AARCH64_APPLE_DARWIN_RUNNER': '/invented/run', 'CARGO_REGISTRIES_EVIL_INDEX': 'x',
+               'CARGO_SOURCE_CRATES_IO_REPLACE_WITH': 'evil', 'CARGO_HTTP_CHECK_REVOKE': 'false',
+               'CARGO_NET_GIT_FETCH_WITH_CLI': 'true', 'DYLD_INSERT_LIBRARIES': '/invented/hook.dylib',
+               'PYTHONPATH': '/invented', 'PYTHONSTARTUP': '/invented/hook.py', 'PYTHONHOME': '/invented',
+               'CARGO_HTTP_SSL_VERIFY': 'false', 'GIT_CONFIG_PARAMETERS': "'http.sslverify'='false'",
+               'GIT_CONFIG_COUNT': '1', 'GIT_CONFIG_KEY_0': 'http.sslVerify', 'GIT_CONFIG_VALUE_0': 'false',
+               'BASH_ENV': '/invented/hook.sh', 'ENV': '/invented/hook.sh'}
+
+    def test_hooks_are_dropped_and_proxy_and_ca_settings_kept(self):
+        self.assertEqual(storage.safe_environment(self.KEPT), self.KEPT)
+        for name, value in self.DROPPED.items():
+            self.assertEqual(storage.safe_environment({'PATH': '/usr/bin', name: value}), {'PATH': '/usr/bin'}, name)
+
+    def test_disabled_tls_verification_is_refused(self):
+        for name, value in (('NODE_TLS_REJECT_UNAUTHORIZED', '0'), ('npm_config_strict_ssl', 'false'),
+                            ('NPM_CONFIG_STRICT-SSL', '0')):
+            with self.assertRaisesRegex(RuntimeError, 'UNSAFE_BUILD_ENVIRONMENT: ' + name):
+                storage.safe_environment({name: value})
+
+    def test_zen_toolchain_environment_uses_the_same_filter(self):
+        import zen_toolchain
+        with patch.dict(os.environ, {'NODE_OPTIONS': '--require=/invented/hook.js', 'HTTPS_PROXY': 'http://p.invalid'}):
+            environment = zen_toolchain.environment()
+        self.assertNotIn('NODE_OPTIONS', environment)
+        self.assertEqual(environment['HTTPS_PROXY'], 'http://p.invalid')
+        with patch.dict(os.environ, {'NODE_TLS_REJECT_UNAUTHORIZED': '0'}), \
+             self.assertRaisesRegex(RuntimeError, 'UNSAFE_BUILD_ENVIRONMENT'):
+            zen_toolchain.environment()
 
 
 if __name__ == '__main__':

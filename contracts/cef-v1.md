@@ -364,7 +364,7 @@ Commands, all bound to the current target unless noted:
   - It completes `success`, or `unsupported` with `stale_node`, `offscreen`,
     `focus_unavailable`, `focus_required`, `not_editable`, `accessibility_disabled`,
     `no_focused_frame` or `rate_limited` (20 actions per second per target).
-  - CEF 154's C API has no accessibility action entry point for OSR browsers, so
+  - CEF's C API (154 and the pinned 156) has no accessibility action entry point for OSR browsers, so
     actions are synthesized as trusted mouse, wheel, key, `select_all` and IME-commit
     input at the node's visible rect (design doc §5.5).
 - `ax_ack {seq}` names the exact target of the event it answers (it may predate a
@@ -460,7 +460,7 @@ process); a disabled gate and every refusal call no switch and start no CEF proc
 
 ## Keychain gate
 
-Why live runs stop: the pinned CEF 154 runtime runs Chromium's OSCrypt, which on
+Why live runs stop: the pinned CEF runtime (154, unchanged in 156) runs Chromium's OSCrypt, which on
 macOS keeps the at-rest encryption password as generic-password item service
 `Chromium Safe Storage`, account `Chromium` in the user's login keychain (both
 strings, the `saltysalt` KDF salt and the `use-mock-keychain`/`mock_password` test

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Project-only APFS build volume on T9; never create, resize or detach disk images.
 
-The build volume `AxioSozoBuild` lives inside the shared `Dev.sparsebundle`
-image next to the `AxioSozo` source volume. Detaching that image would take
-down the source volume, so this script only ever attaches and mounts.
+The build volume `AxioSozoBuild` is a volume of T9's own APFS container, next
+to `T9` and `DevStorage`. Until October 2026 it lived inside the shared
+`Dev.sparsebundle` image next to the `AxioSozo` source volume; that layout is
+still accepted. Detaching that image would take down the source volume, so
+this script only ever attaches and mounts.
 """
 import argparse
 import contextlib
@@ -20,8 +22,10 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
+T9 = Path('/Volumes/T9')
+# Former home of the build volume (see the module docstring).
 IMAGE = Path('/Volumes/T9/Dev.sparsebundle')
-# APFS volume name of the build volume inside IMAGE.
+# APFS volume name of the build volume in T9's container (formerly inside IMAGE).
 VOLUME_NAME = 'AxioSozoBuild'
 # The mounted project volume. Several worktrees may build side by side on it,
 # each in its own build root (AXIOSOZO_BUILD_ROOT=/Volumes/AxioSozoBuild/<name>).
@@ -86,13 +90,27 @@ def disk_info(target):
     return plistlib.loads(result.stdout)
 
 
+def t9_container():
+    """The APFS container of the mounted T9 volume, or None (T9 absent or not APFS)."""
+    if not T9.is_mount():
+        return None
+    info = disk_info(T9)
+    if info.get('MountPoint') != str(T9) or str(info.get('FilesystemType', '')).lower() != 'apfs':
+        return None
+    return info.get('APFSContainerReference') or None
+
+
 def volume_verified():
-    """VOLUME is the APFS volume named VOLUME_NAME inside IMAGE."""
-    if not (VOLUME.is_mount() and str(VOLUME) in image_mounts()):
+    """VOLUME is the APFS volume named VOLUME_NAME in T9's container or inside IMAGE."""
+    if not VOLUME.is_mount():
         return False
     info = disk_info(VOLUME)
-    return (info.get('VolumeName') == VOLUME_NAME and info.get('MountPoint') == str(VOLUME)
-            and str(info.get('FilesystemType', '')).lower() == 'apfs')
+    if not (info.get('VolumeName') == VOLUME_NAME and info.get('MountPoint') == str(VOLUME)
+            and str(info.get('FilesystemType', '')).lower() == 'apfs'):
+        return False
+    container = t9_container()
+    return (container is not None and info.get('APFSContainerReference') == container) \
+        or str(VOLUME) in image_mounts()
 
 
 def mounted():
@@ -116,9 +134,28 @@ def report():
                 if active else None}
 
 
+def container_volumes(container):
+    """[(device, volume name, mount point)] of the APFS volumes in container."""
+    result = subprocess.run(['/usr/sbin/diskutil', 'list', '-plist', container],
+                            capture_output=True, check=True, timeout=30)
+    return [(volume.get('DeviceIdentifier'), volume.get('VolumeName'), volume.get('MountPoint'))
+            for disk in plistlib.loads(result.stdout).get('AllDisksAndPartitions', [])
+            if disk.get('DeviceIdentifier') == container for volume in disk.get('APFSVolumes', [])]
+
+
 def attach_and_mount():
-    """Fallback without the helper: attach IMAGE without mounting (if needed) and
-    mount only the APFS volume named VOLUME_NAME, hidden from Finder."""
+    """Fallback without the helper: mount only the APFS volume named VOLUME_NAME,
+    hidden from Finder; from T9's container, else from IMAGE, which is attached
+    without mounting (if needed)."""
+    container = t9_container()
+    if container is not None and not IMAGE.is_dir():
+        candidates = [device for device, name, mountpoint in container_volumes(container)
+                      if device and name == VOLUME_NAME and not mountpoint]
+        if len(candidates) != 1:
+            raise RuntimeError('Expected exactly one unmounted APFS volume named ' + VOLUME_NAME
+                               + ' in T9 container ' + container + ', found ' + repr(candidates))
+        subprocess.run(['/usr/sbin/diskutil', 'mount', 'nobrowse', candidates[0]], check=True, timeout=180)
+        return
     if image_entities() is None:
         subprocess.run(['/usr/bin/hdiutil', 'attach', '-nomount', str(IMAGE)],
                        check=True, timeout=180)
@@ -144,7 +181,7 @@ def run_helper(helper):
     gets SIGTERM, which the helpers turn into a clean exit that stops their own
     hdiutil/diskutil commands; SIGKILL only if that does not end it. Its output
     goes to stderr so that `setup` prints only the JSON report on stdout."""
-    process = subprocess.Popen([str(helper)], stdout=2)
+    process = subprocess.Popen([str(helper)], stdout=2, env=safe_environment(os.environ))
     try:
         return process.wait(timeout=HELPER_TIMEOUT)
     except subprocess.TimeoutExpired:
@@ -181,12 +218,12 @@ def preflight():
             raise RuntimeError('Build root ' + str(BUILD_ROOT) + ' on ' + str(VOLUME)
                                + ' is not a plain directory (symlink or redirected path)')
         raise RuntimeError('Unexpected filesystem mounted at ' + str(VOLUME) + '; expected APFS volume '
-                           + VOLUME_NAME + ' from ' + str(IMAGE) + ' (unmount any legacy build image manually)')
-    if not Path('/Volumes/T9').is_mount():
+                           + VOLUME_NAME + ' of the T9 container (unmount any legacy build image manually)')
+    if not T9.is_mount():
         raise RuntimeError('T9 is unavailable; no internal-storage fallback')
     if IMAGE.is_symlink():
         raise RuntimeError('Refusing symlink at project disk-image path')
-    if not IMAGE.is_dir():
+    if not IMAGE.is_dir() and t9_container() is None:
         # Never create a substitute image; the build volume must already exist in Dev.sparsebundle.
         raise RuntimeError(str(IMAGE) + ' is missing; it must contain the APFS volume ' + VOLUME_NAME
                            + '. This script never creates disk images')
@@ -246,9 +283,11 @@ def ensure():
     if mounted():
         return report()
     preflight()
-    if MOUNT_HELPER.is_file() and os.access(MOUNT_HELPER, os.X_OK):
+    # The helper only knows IMAGE; the native layout is mounted from T9's container below.
+    native = not IMAGE.is_dir() and t9_container() is not None
+    if not native and MOUNT_HELPER.is_file() and os.access(MOUNT_HELPER, os.X_OK):
         if not wait_for_helper():
-            raise RuntimeError('Build volume ' + VOLUME_NAME + ' from ' + str(IMAGE) + ' was still not verified at '
+            raise RuntimeError('Build volume ' + VOLUME_NAME + ' on T9 ' + ' was still not verified at '
                                + str(VOLUME) + ' ' + str(HELPER_WAIT) + ' s after starting ' + str(MOUNT_HELPER)
                                + ' (see its messages above); rerun storage.py setup once it can mount the volume')
         return report()
@@ -258,13 +297,50 @@ def ensure():
             preflight()
             attach_and_mount()
     if not mounted():
-        raise RuntimeError('Build volume ' + VOLUME_NAME + ' from ' + str(IMAGE) + ' could not be verified at '
+        raise RuntimeError('Build volume ' + VOLUME_NAME + ' on T9 ' + ' could not be verified at '
                            + str(VOLUME) + ' after mounting it')
     return report()
 
 
+# Inherited settings that silently change which code a build runs or weaken TLS.
+# CA bundles and proxies (*_PROXY, NODE_EXTRA_CA_CERTS, SSL_CERT_FILE/DIR,
+# CARGO_HTTP_CAINFO, npm_config_cafile/proxy/https_proxy) still pass through.
+UNSAFE_VARIABLES = {
+    'NODE_OPTIONS', 'NODE_PATH', 'NODE_REPL_EXTERNAL_MODULE', 'NODE_TLS_REJECT_UNAUTHORIZED',
+    'RUSTC', 'RUSTC_WRAPPER', 'RUSTC_WORKSPACE_WRAPPER', 'RUSTDOC', 'RUSTFLAGS', 'RUSTDOCFLAGS',
+    'CARGO_ENCODED_RUSTFLAGS', 'CARGO_ENCODED_RUSTDOCFLAGS', 'RUSTUP_TOOLCHAIN',
+    'CARGO_HTTP_CHECK_REVOKE', 'CARGO_HTTP_SSL_VERSION', 'CARGO_NET_GIT_FETCH_WITH_CLI',
+    'CARGO_HTTP_SSL_VERIFY', 'GIT_SSL_NO_VERIFY', 'GIT_CONFIG_PARAMETERS', 'GIT_CONFIG_COUNT',
+    'BASH_ENV', 'ENV', 'PYTHONPATH', 'PYTHONSTARTUP', 'PYTHONHOME', 'PYTHONUSERBASE'}
+UNSAFE_PREFIXES = ('DYLD_', 'CARGO_BUILD_RUST', 'CARGO_REGISTRIES_', 'CARGO_REGISTRY_', 'CARGO_SOURCE_',
+                   'GIT_CONFIG_KEY_', 'GIT_CONFIG_VALUE_')
+# npm reads npm_config_* case-insensitively and treats '-' and '_' alike.
+UNSAFE_NPM_SETTINGS = {'registry', 'strict_ssl', 'ignore_scripts', 'script_shell', 'shell',
+                       'node_options', 'node_gyp', 'git'}
+
+
+def safe_environment(env):
+    """A copy of env without UNSAFE_* settings. Disabled TLS verification is
+    refused instead of dropped, so the operator sees it."""
+    result = {}
+    for key, value in env.items():
+        npm = key[11:].lower().replace('-', '_') if key.lower().startswith('npm_config_') else ''
+        if ((key == 'NODE_TLS_REJECT_UNAUTHORIZED' and value == '0')
+                or (npm == 'strict_ssl' and value.lower() not in ('', 'true', '1'))):
+            raise RuntimeError('UNSAFE_BUILD_ENVIRONMENT: ' + key + '=' + value
+                               + ' disables TLS verification; unset it')
+        if (key in UNSAFE_VARIABLES or key.startswith(UNSAFE_PREFIXES)
+                or (key.startswith(('CARGO_TARGET_', 'CARGO_HOST_'))
+                    and key.endswith(('_RUSTFLAGS', '_LINKER', '_RUNNER')))
+                or npm.endswith(':registry')
+                or (npm in UNSAFE_NPM_SETTINGS and not (npm == 'ignore_scripts' and value == 'true'))):
+            continue
+        result[key] = value
+    return result
+
+
 def environment(temporary):
-    env = os.environ.copy()
+    env = safe_environment(os.environ)
     env.update({'AXIOSOZO_BUILD_ROOT': str(BUILD_ROOT), 'TMPDIR': str(temporary) + '/',
                 'CARGO_TARGET_DIR': str(BUILD_ROOT / 'cargo-target'),
                 'CLANG_MODULE_CACHE_PATH': str(BUILD_ROOT / 'caches/clang'),

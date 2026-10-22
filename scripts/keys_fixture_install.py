@@ -14,7 +14,7 @@ import subprocess
 WORKTREE = Path("/Volumes/T9/Code/AxioSozo-browser-workstation")
 VOLUME = Path("/Volumes/AxioSozoBuild")
 BUILD = VOLUME / "workstation"
-IMAGE = Path("/Volumes/T9/Dev.sparsebundle")  # holds the AxioSozoBuild APFS volume
+T9 = Path("/Volumes/T9")  # its APFS container holds the AxioSozoBuild volume
 BASE = BUILD / "gui-fixtures"
 PROFILE_BASE = BUILD / "runtime/e626697ad91fe95c"
 PYTHON = VOLUME / "toolchains/zen/python/bin/python3.11"
@@ -35,19 +35,22 @@ def layout(run_id):
             "profile": PROFILE_BASE / ("plan4-keys-" + run_id) / "gecko"}
 
 
+def disk_info(path):
+    result = subprocess.run(["/usr/sbin/diskutil", "info", "-plist", str(path)], capture_output=True,
+                            timeout=5, check=True, env={"LANG": "C", "LC_ALL": "C"})
+    return plistlib.loads(result.stdout)
+
+
 def mounted_volume():
-    require(VOLUME.is_mount() and VOLUME.resolve() == VOLUME and not VOLUME.is_symlink())
-    info = subprocess.run(["/usr/bin/hdiutil", "info", "-plist"], capture_output=True,
-                          timeout=5, check=True, env={"LANG": "C", "LC_ALL": "C"})
-    data = plistlib.loads(info.stdout)
-    require(any(entity.get("mount-point") == str(VOLUME)
-        for item in data.get("images", []) if item.get("image-path") == str(IMAGE)
-        for entity in item.get("system-entities", [])))
-    disk = subprocess.run(["/usr/sbin/diskutil", "info", "-plist", str(VOLUME)], capture_output=True,
-                          timeout=5, check=True, env={"LANG": "C", "LC_ALL": "C"})
-    disk_info = plistlib.loads(disk.stdout)
-    require(disk_info.get("MountPoint") == str(VOLUME) and disk_info.get("VolumeName") == "AxioSozoBuild"
-            and str(disk_info.get("FilesystemType", "")).lower() == "apfs")
+    # Since October 2026 the build volume is an APFS volume of T9's own
+    # container (formerly inside /Volumes/T9/Dev.sparsebundle).
+    require(VOLUME.is_mount() and VOLUME.resolve() == VOLUME and not VOLUME.is_symlink() and T9.is_mount())
+    volume, t9 = disk_info(VOLUME), disk_info(T9)
+    require(volume.get("MountPoint") == str(VOLUME) and volume.get("VolumeName") == "AxioSozoBuild"
+            and str(volume.get("FilesystemType", "")).lower() == "apfs")
+    require(t9.get("MountPoint") == str(T9) and str(t9.get("FilesystemType", "")).lower() == "apfs"
+            and isinstance(t9.get("APFSContainerReference"), str) and t9["APFSContainerReference"] != ""
+            and volume.get("APFSContainerReference") == t9["APFSContainerReference"])
 
 
 def directory_fd(path, private=False):

@@ -37,14 +37,14 @@
   },
   {
     "path": "prefs/zen/workspaces.yaml",
-    "stock_sha256": "a3c9dff66a7de397e8939bd852fed531cdd87fd4cfe0e1fa02510c2c2e03c036",
+    "stock_sha256": "a6c6c2c80d7b244ade5b00a4ea0d0b506e1fd390e0215d389595b2e730920218",
     "patched_sha256": [
       "b3bf5e6d8e6491237974333ea83abacd24637513e749db1f819929bece28fc2c"
     ]
   },
   {
     "path": "prefs/zen/theme.yaml",
-    "stock_sha256": "fee904173d940a92c25961a90fc87002fd15e36870773bc567cb4bb52fd84dec",
+    "stock_sha256": "240d0de9cd2428c7268f70212fb625015707080959ce168c8a70517f1c3a64ef",
     "patched_sha256": [
       "6a739283a8f4827b27542b8ff37147c7bdc988c3566fb343a1fc1782ca89962c"
     ]
@@ -58,7 +58,7 @@
   },
   {
     "path": "src/zen/common/jar.inc.mn",
-    "stock_sha256": "5c70b89bb41bbe1580a11387fe95d6dbcf83ff43bb0d6d264c280fd67e028a77",
+    "stock_sha256": "3520769bf8db52b77f52c78959252ede164b17006480f197d2e5f4b8b44db105",
     "patched_sha256": [
       "9427914bd9b97cd90743c5d11366b98f7edf7a6b1c841e526037a06bbf2341e6",
       "5f36616c6e198dca653c2ac8c7d83f2379cdd44a955d93bd6a145aeb831e238f",

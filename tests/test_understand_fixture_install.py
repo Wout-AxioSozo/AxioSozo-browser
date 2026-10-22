@@ -69,7 +69,7 @@ class InstallerTests(unittest.TestCase):
             path.write_bytes(raw)
             inputs.append((relative, source, hashlib.sha256(raw).hexdigest(), 256))
         replacements = {"WORKTREE": self.worktree, "SOURCE": self.source, "VOLUME": self.volume,
-                        "BUILD": self.build, "IMAGE": self.image, "BASE": self.fixtures,
+                        "BUILD": self.build, "T9": self.image, "BASE": self.fixtures,
                         "PROFILE_BASE": self.profile_base, "PYTHON": self.python, "NODE": self.node,
                         "INPUTS": tuple(inputs), "BINARY_PINS": tuple((path, hashlib.sha256(path.read_bytes()).hexdigest(), 256)
                                                                       for path in (self.python, self.node))}
@@ -307,21 +307,24 @@ class InstallerTests(unittest.TestCase):
 
 
 class MountMetadataTests(unittest.TestCase):
-    def test_mount_metadata_accepts_only_expected_image_mount_and_apfs(self):
+    def test_mount_metadata_accepts_only_the_build_volume_of_the_t9_container(self):
         class MetadataDirectory:
             def __init__(self, *_args, **_kwargs): pass
             def __enter__(self): return self
             def __exit__(self, *_args): pass
-        good_image = {"images": [{"image-path": str(installer.IMAGE), "system-entities": [{"mount-point": str(installer.VOLUME)}]}]}
-        good_disk = {"MountPoint": str(installer.VOLUME), "VolumeName": installer.VOLUME.name, "FilesystemType": "apfs"}
-        with patch.object(installer, "Directory", MetadataDirectory), patch.object(Path, "is_mount", return_value=True), patch.object(installer, "os_query", side_effect=[good_image, good_disk]) as query:
+        good_disk = {"MountPoint": str(installer.VOLUME), "VolumeName": installer.VOLUME.name, "FilesystemType": "apfs",
+                     "APFSContainerReference": "disk5"}
+        good_t9 = {"MountPoint": str(installer.T9), "FilesystemType": "apfs", "APFSContainerReference": "disk5"}
+        with patch.object(installer, "Directory", MetadataDirectory), patch.object(Path, "is_mount", return_value=True), patch.object(installer, "os_query", side_effect=[good_disk, good_t9]) as query:
             installer.mounted_volume()
-            self.assertEqual([call.args for call in query.call_args_list], [("image",), ("disk",)])
-        for image, disk in (({"images": []}, good_disk), (good_image, {"MountPoint": str(installer.VOLUME), "FilesystemType": "exfat"}), (good_image, {"MountPoint": "/other", "FilesystemType": "apfs"}), (good_image, dict(good_disk, VolumeName="AxioSozo"))):
-            with patch.object(installer, "Directory", MetadataDirectory), patch.object(Path, "is_mount", return_value=True), patch.object(installer, "os_query", side_effect=[image, disk]):
+            self.assertEqual([call.args for call in query.call_args_list], [("disk",), ("t9",)])
+        for disk, t9 in ((dict(good_disk, FilesystemType="exfat"), good_t9), (dict(good_disk, MountPoint="/other"), good_t9),
+                         (dict(good_disk, VolumeName="AxioSozo"), good_t9), (dict(good_disk, APFSContainerReference="disk7"), good_t9),
+                         (good_disk, dict(good_t9, FilesystemType="exfat")), (good_disk, dict(good_t9, APFSContainerReference="")),
+                         (good_disk, dict(good_t9, MountPoint="/elsewhere")), (good_disk, None)):
+            with patch.object(installer, "Directory", MetadataDirectory), patch.object(Path, "is_mount", return_value=True), patch.object(installer, "os_query", side_effect=[disk, t9]):
                 with self.assertRaises(RuntimeError):
                     installer.mounted_volume()
-
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

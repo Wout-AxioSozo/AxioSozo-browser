@@ -145,9 +145,19 @@ class Ensure(StorageTestCase):
             active = patch.object(storage, name)
             setattr(self, name, active.start())
             self.addCleanup(active.stop)
-        active = patch.object(storage, 'report', return_value={'mounted': True})
-        active.start()
-        self.addCleanup(active.stop)
+        # The image layout, where the helper mounts the build volume.
+        for active in (patch.object(storage, 'report', return_value={'mounted': True}),
+                       patch.object(storage, 't9_container', return_value=None)):
+            active.start()
+            self.addCleanup(active.stop)
+
+    def test_native_layout_mounts_from_the_container_without_the_image_helper(self):
+        with patch.object(storage, 'IMAGE', self.base / 'Dev.sparsebundle'), \
+             patch.object(storage, 't9_container', return_value='disk5'), \
+             patch.object(storage, 'mounted', side_effect=[False, False, True]):
+            self.assertEqual(storage.ensure(), {'mounted': True})
+        self.attach_and_mount.assert_called_once_with()
+        self.assertEqual(self.runs(), ['lock-free'], 'only the DevStorage helper ran')
 
     def test_devstorage_failure_stops_before_the_build_volume(self):
         storage.MOUNT_SHARED = self.helper('shared', 1)
@@ -230,10 +240,12 @@ class Preflight(unittest.TestCase):
             active = patch.object(storage, name, value)
             active.start()
             self.addCleanup(active.stop)
-        # Only T9 counts as mounted; the temporary mountpoint never is.
-        active = patch.object(Path, 'is_mount', lambda path: str(path) == '/Volumes/T9')
-        active.start()
-        self.addCleanup(active.stop)
+        # Only T9 counts as mounted; the temporary mountpoint never is. The
+        # image layout: T9 itself is no APFS container.
+        for active in (patch.object(Path, 'is_mount', lambda path: str(path) == '/Volumes/T9'),
+                       patch.object(storage, 't9_container', return_value=None)):
+            active.start()
+            self.addCleanup(active.stop)
 
     def test_absent_or_empty_mountpoint_passes(self):
         storage.preflight()
@@ -260,13 +272,59 @@ class Preflight(unittest.TestCase):
             storage.preflight()
 
 
+class NativeLayout(unittest.TestCase):
+    """Since October 2026 the build volume is a volume of T9's own APFS container."""
+    def disks(self, build):
+        t9 = {'VolumeName': 'T9', 'MountPoint': '/Volumes/T9', 'FilesystemType': 'apfs', 'APFSContainerReference': 'disk5'}
+        return lambda target: t9 if str(target) == '/Volumes/T9' else build
+
+    def verified(self, build, images=()):
+        with patch.object(Path, 'is_mount', lambda path: str(path) in ('/Volumes/T9', str(storage.VOLUME))), \
+             patch.object(storage, 'disk_info', side_effect=self.disks(build)), \
+             patch.object(storage, 'image_mounts', return_value=list(images)):
+            return storage.volume_verified()
+
+    def test_build_volume_in_the_t9_container_is_verified(self):
+        build = {'VolumeName': 'AxioSozoBuild', 'MountPoint': str(storage.VOLUME), 'FilesystemType': 'apfs',
+                 'APFSContainerReference': 'disk5'}
+        self.assertTrue(self.verified(build))
+        self.assertFalse(self.verified({**build, 'APFSContainerReference': 'disk7'}), 'another container')
+        self.assertTrue(self.verified({**build, 'APFSContainerReference': 'disk7'}, [str(storage.VOLUME)]), 'legacy image')
+        self.assertFalse(self.verified({**build, 'VolumeName': 'Other'}))
+        self.assertFalse(self.verified({**build, 'FilesystemType': 'exfat'}))
+
+    def test_fallback_mounts_only_the_unmounted_build_volume_of_the_container(self):
+        calls = []
+        volumes = [('disk5s1', 'T9', '/Volumes/T9'), ('disk5s2', 'DevStorage', '/Volumes/DevStorage'),
+                   ('disk5s3', 'AxioSozoBuild', None)]
+        with patch.object(storage, 'IMAGE', Path('/nonexistent/Dev.sparsebundle')), \
+             patch.object(storage, 't9_container', return_value='disk5'), \
+             patch.object(storage, 'container_volumes', return_value=volumes), \
+             patch.object(storage, 'image_entities', side_effect=AssertionError('no image attach')), \
+             patch.object(storage.subprocess, 'run', side_effect=lambda argv, **_: calls.append(argv)):
+            storage.attach_and_mount()
+            self.assertEqual(calls, [['/usr/sbin/diskutil', 'mount', 'nobrowse', 'disk5s3']])
+            with patch.object(storage, 'container_volumes', return_value=volumes[:2]):
+                with self.assertRaisesRegex(RuntimeError, 'Expected exactly one'):
+                    storage.attach_and_mount()
+
+    def test_preflight_needs_no_image_in_the_native_layout(self):
+        with tempfile.TemporaryDirectory(prefix='storage-native-') as directory, \
+             patch.object(storage, 'VOLUME', Path(directory) / 'AxioSozoBuild'), \
+             patch.object(storage, 'IMAGE', Path(directory) / 'Dev.sparsebundle'), \
+             patch.object(Path, 'is_mount', lambda path: str(path) == '/Volumes/T9'), \
+             patch.object(storage, 't9_container', return_value='disk5'):
+            storage.preflight()
+
+
 class AttachAndMount(unittest.TestCase):
     def test_only_attaches_without_mounting_and_mounts_the_build_volume(self):
         calls = []
         entities = [{'dev-entry': '/dev/disk9s1', 'mount-point': '/elsewhere'},
                     {'dev-entry': '/dev/disk9s2'}, {'dev-entry': '/dev/disk9s3'}]
         names = {'/dev/disk9s2': 'DevStorage', '/dev/disk9s3': 'AxioSozoBuild'}
-        with patch.object(storage, 'image_entities', side_effect=[None, entities]), \
+        with patch.object(storage, 't9_container', return_value=None), \
+             patch.object(storage, 'image_entities', side_effect=[None, entities]), \
              patch.object(storage, 'disk_info', side_effect=lambda device: {
                  'VolumeName': names[device], 'FilesystemType': 'apfs'}), \
              patch.object(storage.subprocess, 'run', side_effect=lambda argv, **_: calls.append(argv)):

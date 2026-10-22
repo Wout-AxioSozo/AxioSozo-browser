@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Project-only APFS build volume on T9; never create, resize or detach disk images.
 
-The build volume `AxioSozoBuild` lives inside the shared `Dev.sparsebundle`
-image next to the `AxioSozo` source volume. Detaching that image would take
-down the source volume, so this script only ever attaches and mounts.
+The build volume `AxioSozoBuild` is a volume of T9's own APFS container, next
+to `T9` and `DevStorage`. Until October 2026 it lived inside the shared
+`Dev.sparsebundle` image next to the `AxioSozo` source volume; that layout is
+still accepted. Detaching that image would take down the source volume, so
+this script only ever attaches and mounts.
 """
 import argparse
 import contextlib
@@ -20,8 +22,10 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
+T9 = Path('/Volumes/T9')
+# Former home of the build volume (see the module docstring).
 IMAGE = Path('/Volumes/T9/Dev.sparsebundle')
-# APFS volume name of the build volume inside IMAGE.
+# APFS volume name of the build volume in T9's container (formerly inside IMAGE).
 VOLUME_NAME = 'AxioSozoBuild'
 # The mounted project volume. Several worktrees may build side by side on it,
 # each in its own build root (AXIOSOZO_BUILD_ROOT=/Volumes/AxioSozoBuild/<name>).
@@ -86,13 +90,27 @@ def disk_info(target):
     return plistlib.loads(result.stdout)
 
 
+def t9_container():
+    """The APFS container of the mounted T9 volume, or None (T9 absent or not APFS)."""
+    if not T9.is_mount():
+        return None
+    info = disk_info(T9)
+    if info.get('MountPoint') != str(T9) or str(info.get('FilesystemType', '')).lower() != 'apfs':
+        return None
+    return info.get('APFSContainerReference') or None
+
+
 def volume_verified():
-    """VOLUME is the APFS volume named VOLUME_NAME inside IMAGE."""
-    if not (VOLUME.is_mount() and str(VOLUME) in image_mounts()):
+    """VOLUME is the APFS volume named VOLUME_NAME in T9's container or inside IMAGE."""
+    if not VOLUME.is_mount():
         return False
     info = disk_info(VOLUME)
-    return (info.get('VolumeName') == VOLUME_NAME and info.get('MountPoint') == str(VOLUME)
-            and str(info.get('FilesystemType', '')).lower() == 'apfs')
+    if not (info.get('VolumeName') == VOLUME_NAME and info.get('MountPoint') == str(VOLUME)
+            and str(info.get('FilesystemType', '')).lower() == 'apfs'):
+        return False
+    container = t9_container()
+    return (container is not None and info.get('APFSContainerReference') == container) \
+        or str(VOLUME) in image_mounts()
 
 
 def mounted():
@@ -116,9 +134,28 @@ def report():
                 if active else None}
 
 
+def container_volumes(container):
+    """[(device, volume name, mount point)] of the APFS volumes in container."""
+    result = subprocess.run(['/usr/sbin/diskutil', 'list', '-plist', container],
+                            capture_output=True, check=True, timeout=30)
+    return [(volume.get('DeviceIdentifier'), volume.get('VolumeName'), volume.get('MountPoint'))
+            for disk in plistlib.loads(result.stdout).get('AllDisksAndPartitions', [])
+            if disk.get('DeviceIdentifier') == container for volume in disk.get('APFSVolumes', [])]
+
+
 def attach_and_mount():
-    """Fallback without the helper: attach IMAGE without mounting (if needed) and
-    mount only the APFS volume named VOLUME_NAME, hidden from Finder."""
+    """Fallback without the helper: mount only the APFS volume named VOLUME_NAME,
+    hidden from Finder; from T9's container, else from IMAGE, which is attached
+    without mounting (if needed)."""
+    container = t9_container()
+    if container is not None and not IMAGE.is_dir():
+        candidates = [device for device, name, mountpoint in container_volumes(container)
+                      if device and name == VOLUME_NAME and not mountpoint]
+        if len(candidates) != 1:
+            raise RuntimeError('Expected exactly one unmounted APFS volume named ' + VOLUME_NAME
+                               + ' in T9 container ' + container + ', found ' + repr(candidates))
+        subprocess.run(['/usr/sbin/diskutil', 'mount', 'nobrowse', candidates[0]], check=True, timeout=180)
+        return
     if image_entities() is None:
         subprocess.run(['/usr/bin/hdiutil', 'attach', '-nomount', str(IMAGE)],
                        check=True, timeout=180)
@@ -181,12 +218,12 @@ def preflight():
             raise RuntimeError('Build root ' + str(BUILD_ROOT) + ' on ' + str(VOLUME)
                                + ' is not a plain directory (symlink or redirected path)')
         raise RuntimeError('Unexpected filesystem mounted at ' + str(VOLUME) + '; expected APFS volume '
-                           + VOLUME_NAME + ' from ' + str(IMAGE) + ' (unmount any legacy build image manually)')
-    if not Path('/Volumes/T9').is_mount():
+                           + VOLUME_NAME + ' of the T9 container (unmount any legacy build image manually)')
+    if not T9.is_mount():
         raise RuntimeError('T9 is unavailable; no internal-storage fallback')
     if IMAGE.is_symlink():
         raise RuntimeError('Refusing symlink at project disk-image path')
-    if not IMAGE.is_dir():
+    if not IMAGE.is_dir() and t9_container() is None:
         # Never create a substitute image; the build volume must already exist in Dev.sparsebundle.
         raise RuntimeError(str(IMAGE) + ' is missing; it must contain the APFS volume ' + VOLUME_NAME
                            + '. This script never creates disk images')
@@ -246,9 +283,11 @@ def ensure():
     if mounted():
         return report()
     preflight()
-    if MOUNT_HELPER.is_file() and os.access(MOUNT_HELPER, os.X_OK):
+    # The helper only knows IMAGE; the native layout is mounted from T9's container below.
+    native = not IMAGE.is_dir() and t9_container() is not None
+    if not native and MOUNT_HELPER.is_file() and os.access(MOUNT_HELPER, os.X_OK):
         if not wait_for_helper():
-            raise RuntimeError('Build volume ' + VOLUME_NAME + ' from ' + str(IMAGE) + ' was still not verified at '
+            raise RuntimeError('Build volume ' + VOLUME_NAME + ' on T9 ' + ' was still not verified at '
                                + str(VOLUME) + ' ' + str(HELPER_WAIT) + ' s after starting ' + str(MOUNT_HELPER)
                                + ' (see its messages above); rerun storage.py setup once it can mount the volume')
         return report()
@@ -258,7 +297,7 @@ def ensure():
             preflight()
             attach_and_mount()
     if not mounted():
-        raise RuntimeError('Build volume ' + VOLUME_NAME + ' from ' + str(IMAGE) + ' could not be verified at '
+        raise RuntimeError('Build volume ' + VOLUME_NAME + ' on T9 ' + ' could not be verified at '
                            + str(VOLUME) + ' after mounting it')
     return report()
 
